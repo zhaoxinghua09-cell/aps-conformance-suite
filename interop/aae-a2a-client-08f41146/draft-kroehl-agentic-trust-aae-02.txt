@@ -1,0 +1,3024 @@
+
+
+
+
+Independent Submission                                      L. K. Kroehl
+Internet-Draft                                            CryptoKRI GmbH
+Intended status: Informational                          6 September 2026
+Expires: 10 March 2027
+
+
+ Agent Authorization Envelope (AAE): A Machine-Evaluable Authorization
+                   Structure for Autonomous AI Agents
+                   draft-kroehl-agentic-trust-aae-02
+
+Abstract
+
+   Autonomous AI agents now operate at production scale across
+   financial, commercial, and infrastructure domains — executing
+   transactions, invoking APIs, and taking consequential actions without
+   direct human oversight at each step.  Existing authorization
+   mechanisms (OAuth 2.0, API keys, ACLs) were designed for human-
+   initiated requests and do not capture the machine-evaluable semantics
+   required for autonomous agent authorization: what the agent is
+   mandated to do, what constraints bound its actions, and for how long
+   the authorization is valid.
+
+   This document specifies the Agent Authorization Envelope (AAE), a
+   structured authorization container for autonomous AI agents.  AAE
+   defines three mandatory blocks — MANDATE, CONSTRAINTS, and VALIDITY —
+   that together constitute a machine-evaluable, cryptographically
+   verifiable authorization assertion.  AAE is designed to be protocol-
+   agnostic, binding to W3C Decentralized Identifiers (DIDs) for agent
+   identity and W3C Verifiable Credentials (VCs) for issuance and
+   signature, and is independent of any specific AI framework, transport
+   protocol, or blockchain.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 10 March 2027.
+
+
+
+Kroehl                    Expires 10 March 2027                 [Page 1]
+
+Internet-Draft                     AAE                    September 2026
+
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.
+
+Table of Contents
+
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3
+     1.1.  Regulatory Convergence  . . . . . . . . . . . . . . . . .   4
+     1.2.  Terminology . . . . . . . . . . . . . . . . . . . . . . .   4
+   2.  The Agent Authorization Envelope  . . . . . . . . . . . . . .   5
+     2.1.  Structure . . . . . . . . . . . . . . . . . . . . . . . .   5
+     2.2.  The MANDATE Block . . . . . . . . . . . . . . . . . . . .   7
+       2.2.1.  Grants  . . . . . . . . . . . . . . . . . . . . . . .   7
+       2.2.2.  Action Binding  . . . . . . . . . . . . . . . . . . .   9
+       2.2.3.  Grant Evaluation  . . . . . . . . . . . . . . . . . .  11
+     2.3.  The CONSTRAINTS Block . . . . . . . . . . . . . . . . . .  12
+     2.4.  The VALIDITY Block  . . . . . . . . . . . . . . . . . . .  13
+     2.5.  Enforcement Constraint Language . . . . . . . . . . . . .  15
+       2.5.1.  Closed Type Set . . . . . . . . . . . . . . . . . . .  15
+       2.5.2.  Predicate Trace . . . . . . . . . . . . . . . . . . .  16
+       2.5.3.  Recompute Determinism . . . . . . . . . . . . . . . .  17
+   3.  Delegation Chains . . . . . . . . . . . . . . . . . . . . . .  18
+   4.  Action Vocabulary Schemas . . . . . . . . . . . . . . . . . .  21
+   5.  Verification Algorithm  . . . . . . . . . . . . . . . . . . .  22
+     5.1.  Verification Dependencies . . . . . . . . . . . . . . . .  30
+     5.2.  Deferred Verification Capabilities  . . . . . . . . . . .  31
+   6.  Verdicts and Ratification . . . . . . . . . . . . . . . . . .  31
+     6.1.  Verdict Vocabulary  . . . . . . . . . . . . . . . . . . .  32
+     6.2.  Verdict Records and Chaining  . . . . . . . . . . . . . .  32
+     6.3.  Ratification  . . . . . . . . . . . . . . . . . . . . . .  32
+     6.4.  Authority (Witness, not Ruler)  . . . . . . . . . . . . .  36
+   7.  Security Considerations . . . . . . . . . . . . . . . . . . .  39
+     7.1.  Replay Attacks  . . . . . . . . . . . . . . . . . . . . .  39
+     7.2.  Constraint Bypass . . . . . . . . . . . . . . . . . . . .  40
+     7.3.  Key Compromise  . . . . . . . . . . . . . . . . . . . . .  40
+     7.4.  Delegation Amplification  . . . . . . . . . . . . . . . .  40
+     7.5.  Delegation Revocation . . . . . . . . . . . . . . . . . .  40
+     7.6.  Clock Skew and Time Synchronization . . . . . . . . . . .  41
+     7.7.  On-Chain Anchoring  . . . . . . . . . . . . . . . . . . .  41
+     7.8.  Predicate Trace Disclosure  . . . . . . . . . . . . . . .  42
+     7.9.  Resource Exhaustion and Input Limits  . . . . . . . . . .  43
+
+
+
+Kroehl                    Expires 10 March 2027                 [Page 2]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   8.  Privacy Considerations  . . . . . . . . . . . . . . . . . . .  44
+   9.  Future Work . . . . . . . . . . . . . . . . . . . . . . . . .  44
+   10. Test Vectors  . . . . . . . . . . . . . . . . . . . . . . . .  45
+   11. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  47
+     11.1.  Media Type Registration  . . . . . . . . . . . . . . . .  47
+     11.2.  No Further IANA Actions  . . . . . . . . . . . . . . . .  48
+   12. References  . . . . . . . . . . . . . . . . . . . . . . . . .  48
+     12.1.  Normative References . . . . . . . . . . . . . . . . . .  48
+     12.2.  Informative References . . . . . . . . . . . . . . . . .  50
+   Appendix A.  Example: Travel Booking Agent  . . . . . . . . . . .  51
+   Appendix B.  Relationship to Existing Standards . . . . . . . . .  52
+   Appendix C.  Acknowledgements . . . . . . . . . . . . . . . . . .  53
+   Appendix D.  Changes Since -01  . . . . . . . . . . . . . . . . .  53
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  54
+
+1.  Introduction
+
+   The deployment of autonomous AI agents at scale creates an
+   authorization gap that existing Internet protocols do not address.
+   When a human user initiates a request, the authorization question is
+   well-understood: who is the user, what are they permitted to do, and
+   has their session expired?  Protocols such as OAuth 2.0 [RFC6749]
+   answer these questions for human-delegated access.
+
+   When an autonomous agent initiates a request — potentially on behalf
+   of another agent, under a delegated mandate, with specific
+   constraints on permissible actions — the question requires a
+   different answer.  The agent may be acting under a mandate issued
+   hours earlier; its actions may be bounded by value caps, action
+   allowlists, or domain restrictions; and the authorization may expire
+   on a schedule that the receiving system must be able to verify
+   without contacting the issuing party.
+
+   No current IETF standard addresses this combination of requirements
+   for autonomous agents.  OAuth 2.0 scopes are issuer-defined strings
+   without machine-evaluable semantics for agent mandates.  SPIFFE/SVID
+   addresses workload identity but not authorization semantics.  JWT
+   claims are flexible but unstructured for agent-specific use cases.
+
+   This document specifies the Agent Authorization Envelope (AAE) to
+   fill this gap.  AAE is derived from a production deployment
+   operational since March 2026 [ARXIV-AAE] and is aligned with
+   regulatory requirements from Singapore IMDA [IMDA-MGF], NIST
+   [NIST-CAISI], and the EU AI Act (Regulation 2024/1689).
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                 [Page 3]
+
+Internet-Draft                     AAE                    September 2026
+
+
+1.1.  Regulatory Convergence
+
+   Independent regulatory work has converged on the same authorization
+   structure that AAE implements.  Two requirements from the Singapore
+   IMDA Model AI Governance Framework for Agentic AI, Version 1.5
+   [IMDA-MGF], published 20 May 2026, are directly relevant.
+
+   First, on agent identity (§2.1.2, "Agent identity — Identification"),
+   the framework states:
+
+      An agent should have its own unique, cryptographically verifiable
+      identity, such that it can identify itself to the organisation,
+      its human user, or other agents.
+
+   The framework further recommends that agent identities be catalogued
+   and centrally managed, issued from and tracked by a centralised
+   system — the operational model that a DID-based trust registry
+   implements.
+
+   Second, on authorization scope (§2.1.2, "Authorisation"), the
+   framework recommends that authorisations be scoped, time- or session-
+   bound, non-transferable, and follow the principle of least privilege
+   by default with explicit escalation paths; that they be bounded by
+   the authorising human's permissions; and that delegations of
+   authority be clearly recorded.
+
+   This maps directly to the three AAE blocks: MANDATE defines the scope
+   and action allowlist, CONSTRAINTS implement least-privilege and value
+   bounds, VALIDITY enforces time-bound non-transferable authorization,
+   and the delegation chain structure records authority provenance
+   (Section 3).
+
+   A case study in the same framework (§2.3, "Terminal 3 case study")
+   describes an independent implementation of the same pattern: a
+   "Verifiable Credential of Intent" issued by a human principal to an
+   agent before each cycle, defining accessible records, applicable
+   constraints, and a declared ceiling amount.  This is a real-world
+   deployment of pre-transaction scoped authorization that is
+   structurally equivalent to AAE.
+
+1.2.  Terminology
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in BCP
+   14 [RFC2119] [RFC8174] when, and only when, they appear in all
+   capitals, as shown here.
+
+
+
+
+Kroehl                    Expires 10 March 2027                 [Page 4]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   *Agent:* An autonomous software entity that takes actions on behalf
+   of a principal, potentially without per-action human approval.
+
+   *Principal:* The human or organization that deploys and is ultimately
+   accountable for an agent's actions.
+
+   *Issuer:* The entity that issues the AAE, typically a trust registry
+   or the principal directly.
+
+   *Relying Party:* The system or service that receives a request from
+   an agent and evaluates the AAE to determine whether to process it.
+
+   *AAE:* Agent Authorization Envelope — the structured authorization
+   container defined in this document.
+
+2.  The Agent Authorization Envelope
+
+   An AAE is a W3C Verifiable Credential [W3C-VC] whose
+   credentialSubject carries an aae object.  The aae object has three
+   mandatory members — mandate, constraints, and validity — defined in
+   the following subsections.
+
+   An AAE MUST be secured using JOSE.  The Verifiable Credential is the
+   payload of a JSON Web Signature (JWS) [RFC7515] in compact
+   serialization, signed by the issuer using the Edwards-curve Digital
+   Signature Algorithm (EdDSA) with the Ed25519 curve, as specified for
+   JOSE in [RFC8037] and for the signature algorithm itself in
+   [RFC8032].  The issuer's signing key is a JSON Web Key (JWK)
+   [RFC7517] bound to the issuer's W3C DID [W3C-DID]: the JWS protected-
+   header kid parameter MUST be a DID URL that dereferences, via the
+   issuer DID document, to the corresponding verification method.
+
+   This document distinguishes two media types.  An _unsecured AAE_ —
+   the Verifiable Credential before JWS encapsulation — is a JSON object
+   with media type application/aae+json (Section 11).  A _secured AAE_ —
+   the JWS in compact serialization — is not a JSON document; it is
+   transported with media type application/jose [RFC7515], and the media
+   type of its JWS payload is indicated by the cty protected-header
+   parameter, "aae+json".
+
+2.1.  Structure
+
+   On the wire, a secured AAE is a JWS in compact serialization:
+
+   BASE64URL(UTF8(JWS Protected Header)) || '.' ||
+   BASE64URL(JWS Payload) || '.' ||
+   BASE64URL(JWS Signature)
+
+
+
+
+Kroehl                    Expires 10 March 2027                 [Page 5]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   The JWS Protected Header MUST contain:
+
+   {
+     "alg": "EdDSA",
+     "cty": "aae+json",
+     "kid": "did:moltrust:registry#key-1"
+   }
+
+   alg: REQUIRED.  MUST be "EdDSA"; the curve MUST be Ed25519, as
+   specified for JOSE in [RFC8037].
+
+   cty: REQUIRED.  The media type of the JWS payload; MUST be "aae+json"
+   (Section 11).  The "application/" prefix is omitted as permitted by
+   [RFC7515].  Per [RFC7515], cty (content type) identifies the secured
+   payload; the typ parameter, if present, identifies the JWS object
+   itself and MUST NOT carry the payload media type.
+
+   kid: REQUIRED.  A DID URL identifying the issuer verification method.
+   It MUST dereference, via the issuer DID document, to an Ed25519
+   verification method authorized for the assertionMethod proof purpose.
+
+   The JWS Payload is the unsecured AAE: a W3C Verifiable Credential
+   whose media type is application/aae+json (Section 11).
+
+   {
+     "@context": [
+       "https://www.w3.org/ns/credentials/v2",
+       "https://moltrust.ch/contexts/aae/v1"
+     ],
+     "type": ["VerifiableCredential", "AgentAuthorizationEnvelope"],
+     "id": "urn:uuid:3f2b8c10-7c2e-4f1a-9b6d-1e2a3c4d5e6f",
+     "issuer": "did:moltrust:registry",
+     "validFrom": "2026-05-20T10:00:00Z",
+     "credentialSubject": {
+       "id": "did:example:agent-abc123",
+       "aae": {
+         "mandate": { ... },
+         "constraints": { ... },
+         "validity": { ... }
+       }
+     }
+   }
+
+   The Verifiable Credential MUST contain an id member whose value is a
+   URI [RFC3986] that is globally unique across all AAEs issued by the
+   issuer (for example, a UUID URN [RFC9562]).  The Verifiable
+   Credential MUST NOT contain an embedded proof member; integrity and
+   authenticity are provided solely by the enclosing JWS.
+
+
+
+Kroehl                    Expires 10 March 2027                 [Page 6]
+
+Internet-Draft                     AAE                    September 2026
+
+
+2.2.  The MANDATE Block
+
+   The MANDATE block specifies what the agent is authorized to do.  It
+   MUST contain an actions array of permitted action identifiers and
+   SHOULD contain a purpose string describing the authorization context.
+
+   "mandate": {
+     "actions": ["read", "book", "pay"],
+     "purpose": "Travel booking on behalf of principal",
+     "scope": "travel-vertical",
+     "principal_did": "did:example:principal-xyz"
+   }
+
+   actions: REQUIRED.  Array of strings.  Each string is a permitted
+   action identifier.  Relying parties define their own action
+   vocabularies; interoperability is achieved through shared vertical
+   schemas (see Section 4).
+
+   purpose: RECOMMENDED.  Human-readable description of the
+   authorization context.  Used for audit logs.
+
+   scope: OPTIONAL.  Restricts the MANDATE to a specific vertical or
+   service domain.
+
+   principal_did: RECOMMENDED.  The DID of the human or organization
+   ultimately accountable for the agent's actions.
+
+   The MANDATE block MAY also contain a delegation object or a
+   delegation_policy object; both are defined in Section 3.
+
+   The same principal may also be named in another identifier space —
+   one defined outside this document, whether by a further specification
+   or by a relying party's own enrolment records.  Nothing in AAE
+   requires two such identifiers to agree, or even to be comparable, and
+   no rule in this document derives one from the other.  Where a
+   deployment needs the question answered, it answers it with data: a
+   table mapping both identifier forms onto one canonical space,
+   published as part of the deployment.  An identifier with no entry is
+   unresolved, which is a missing input rather than a conflict.  Such a
+   table is supplied, not derived; a rule that only reads a table is not
+   a rule this document can state.  See Section 9.
+
+2.2.1.  Grants
+
+   The MANDATE block MAY contain a grants array. grants is OPTIONAL and
+   additive: it does not replace actions, which remains REQUIRED exactly
+   as this section specifies.  An AAE that carries only actions is
+   complete and conforms to this document unchanged.
+
+
+
+Kroehl                    Expires 10 March 2027                 [Page 7]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   The two members describe the same authorization at two granularities.
+   actions names the action identifiers an agent is permitted to invoke
+   at all.  A grant states the conditions under which one such action is
+   authorized at the moment it is attempted, and adding grants is what
+   turns an AAE into an envelope a relying party can enforce per
+   transaction.
+
+   Two rules keep the pair from becoming a way around itself.
+
+   *Presence of grants is binding.* Where an AAE carries grants, a
+   relying party that does not evaluate them MUST reject the envelope.
+   It MUST NOT fall back to actions and MUST NOT return PERMIT on that
+   basis.  An issuer who narrows an authorization by adding grants has
+   to be able to rely on that narrowing; if a verifier could ignore the
+   grants and read the coarser member instead, adding them would weaken
+   the envelope rather than tighten it, and the choice of verifier would
+   decide what the mandate means.
+
+   *Grants refine, they never extend.* Every action a grant permits MUST
+   also appear in mandate.actions. actions is the outer bound and grants
+   is the refinement inside it; a grant naming an action the mandate
+   does not list is malformed, and the relying party MUST reject the
+   mandate rather than honour the grant.
+
+   Each element of grants is an object with four REQUIRED members:
+
+   "grants": [
+     {
+       "action_binding": "sha256:<64 lowercase hex characters>",
+       "type_fields": ["verb", "asset", "chain"],
+       "disposition": "allow",
+       "constraints": [
+         { "type": "exact", "field": "to", "value": "0xABCDEF01" },
+         { "type": "range", "field": "amount", "lo": 0, "hi": 1000 }
+       ]
+     }
+   ]
+
+   action_binding: REQUIRED.  The digest defined in Section 2.2.2.  A
+   relying party MUST reject a grant whose action_binding is absent, is
+   not a string, or does not match the form sha256: followed by exactly
+   64 lowercase hexadecimal characters.
+
+   type_fields: REQUIRED.  The names of the members that make up the
+   action this grant binds, as defined in Section 2.2.2.  It MUST be a
+   non-empty array of non-empty strings, MUST contain verb, and MUST NOT
+   repeat a name.  A relying party MUST support at least 32 entries and
+   MAY reject a longer list.  A grant failing any of these is malformed.
+
+
+
+Kroehl                    Expires 10 March 2027                 [Page 8]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   Repetition is not merely redundant: the comparison in Section 2.2.2
+   is over sets, and a list with a duplicate claims a field count it
+   does not have.
+
+   disposition: REQUIRED.  One of allow, hold, or forbid.  Any other
+   value makes the grant malformed and the relying party MUST reject the
+   mandate.
+
+   constraints: REQUIRED.  An array, possibly empty, of the constraint
+   objects defined in Section 2.5.  A relying party MUST support at
+   least 64 members and MAY reject a longer array.
+
+   A mandate carrying grants MUST carry at least one grant.  A relying
+   party MUST support at least 256 grants and MAY reject a longer array.
+   A relying party MUST reject a mandate that is absent, is not an
+   object, carries an empty or non-array grants member, exceeds a limit
+   it has set for itself, or contains a single malformed grant.
+   Rejection in this section means the DENY verdict of Section 6.1, not
+   a transport-level error.
+
+   Numeric bounds in this section and in Section 2.5 state *minimum
+   capabilities, not ceilings*. Where a number is given, a relying party
+   MUST support at least that value and MAY refuse input beyond a limit
+   of its own choosing.  The numbers exist so that an issuer can predict
+   what any conforming verifier will accept, not to cap what an
+   implementation may do.  Properties that carry security or determinism
+   are not bounds and stay MUST without qualification: an exact
+   comparison, a closed type set, integer-only arithmetic, a rejected
+   empty path segment, and a comparison that does not short-circuit.
+
+2.2.2.  Action Binding
+
+   action_binding commits a grant to one action.  It is computed over
+   the action alone, so that a third party can recompute the binding
+   without seeing the rest of the transaction.
+
+   Let A be the JSON value the relying party evaluates as the action.
+   The binding is:
+
+   action_binding = "sha256:" || LOWERHEX( SHA-256( TAG || JCS(A) ) )
+
+   TAG = the 21 octets "aae:enforce-action:v1" followed by a single
+         0x00 octet
+
+   JCS is the JSON Canonicalization Scheme of [RFC8785], and SHA-256 is
+   as specified in [RFC6234].  The same two apply to every digest
+   defined in this document.
+
+
+
+
+Kroehl                    Expires 10 March 2027                 [Page 9]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   A domain tag MUST be used, and its value for this digest is
+   aae:enforce-action:v1.  The tag separates this digest from every
+   other digest in this document and from any digest defined elsewhere.
+   A relying party MUST NOT accept a digest computed without the tag,
+   and MUST NOT accept an encoding other than lowercase hexadecimal.
+
+   This document now defines two digest constructions, and they
+   deliberately differ.  The delegator_aae_hash of Section 3 takes the
+   exact ASCII octets of a parent AAE's JWS compact serialization as
+   retrieved — no domain tag, no canonicalization, encoded base64url
+   [RFC4648].  The action_binding defined here takes a JSON value,
+   canonicalizes it under [RFC8785], prefixes a domain tag, and encodes
+   the result as lowercase hexadecimal.  The difference follows from the
+   input: a JWS is already a fixed octet sequence, and re-encoding it
+   would destroy the very bytes the signature covers, whereas a JSON
+   object has no fixed serialization until one is imposed.  Neither
+   construction substitutes for the other, and a value produced by one
+   MUST NOT be compared against a value produced by the other.
+
+   A grant binds an *action type*: the members of A identify what kind
+   of operation is authorized, not which particular instance of it.
+   type_fields names those members, and the two MUST agree exactly.
+
+   A MUST be a JSON object.  A string, an array, a number, a boolean, a
+   null, or an absent action does not constitute an action type, and a
+   relying party MUST deny such a transaction.
+
+   The object test is what decides, and it is not the digest that
+   decides it.  All of those values canonicalize: [RFC8785] produces
+   octets for a string, an array, a number, a boolean and a null alike,
+   so a digest over any of them is well formed.  A well-formed digest
+   over a non-object therefore says nothing about whether an action was
+   addressed, and a relying party MUST NOT let a digest comparison stand
+   in for the object test.  Where the digest is computed relative to
+   that test does not change the verdict — a non-object action matches
+   no grant's type_fields, so it is denied on the type predicate before
+   any binding comparison is reached (Section 2.2.3, steps 2 and 3).
+   What MUST NOT happen is that a digest computed over a non-object is
+   compared against a grant's action_binding and read as a match.
+
+   The member names of A MUST be exactly the names in the grant's
+   type_fields, compared as sets.  A member of type_fields that A does
+   not carry, and a member of A that type_fields does not name, each
+   make the grant inapplicable to that transaction.  If no grant's
+   type_fields matches the action, the verdict is DENY, and the relying
+   party SHOULD report which names were missing and which were outside
+   the declared type.
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 10]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   The values that distinguish one instance from another — amounts,
+   recipients, sequence numbers — MUST NOT be carried inside A.  They
+   travel as siblings of the action in the transaction and are bounded
+   by the grant's constraints under Section 2.5.  Placing such a value
+   inside A would make it part of the digest, so every payment would be
+   a different action and a grant could bind at most one of them.
+
+   A binding that commits to an action *instance* rather than an action
+   type — one whose digest covers the concrete values of a single
+   transaction — is outside this specification.  This document neither
+   defines nor forbids such a construction; it is simply not the binding
+   specified here, and an implementation that offers both MUST keep them
+   in distinct members so that no verifier has to guess which one a
+   digest covers.
+
+2.2.3.  Grant Evaluation
+
+   A relying party evaluating a transaction against a mandate MUST
+   proceed as follows.
+
+   1.  Compute the action binding of the transaction's action per
+       Section 2.2.2.  If the transaction is absent or is not an object,
+       or if the action cannot be canonicalized, the verdict is DENY.
+
+       This step does not settle the object test of Section 2.2.2.  An
+       action that is a string, an array, a number, a boolean or a null
+       canonicalizes and yields a well-formed digest, so it passes this
+       step; it is denied in step 2, which is where the object test
+       takes effect.  An absent action is one such case: it
+       canonicalizes as null.
+
+   2.  Select every grant whose type_fields matches the action's member
+       names as sets.  An action that is not a JSON object has no member
+       names and matches no grant, which is how a non-object action
+       reaches DENY (Section 2.2.2).  A grant whose declared type the
+       action does not satisfy is skipped, not fatal: a mandate may
+       carry grants for several kinds of action, and only those of the
+       kind at hand are considered.  If no grant's type matches, the
+       verdict is DENY.  The reason SHOULD name the missing and the
+       outside members, and for a non-object action SHOULD say so; the
+       predicate trace of Section 2.5.2 already carries what a verifier
+       needs to reconstruct the decision, so this document does not fix
+       the granularity of the reason string.  The DENY itself is not
+       optional.
+
+   3.  Among the grants selected in step 2, take every one whose
+       action_binding equals the computed digest.  The comparison MUST
+       be performed in constant time with respect to digest content.
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 11]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   4.  If no grant matches, the verdict is DENY.  An action that no
+       grant addresses MUST NOT produce PENDING.  Silence in a mandate
+       is not a route to authorization.
+
+   5.  If any matched grant carries disposition: "forbid", the verdict
+       is DENY, and the relying party MUST NOT evaluate that grant's
+       constraints and MUST NOT consider any other matched grant.  A
+       prohibition takes precedence over a permission for the same
+       action.
+
+   6.  Otherwise, evaluate the matched grants in document order.  For
+       the first grant all of whose constraints hold, the verdict is
+       PERMIT if its disposition is allow and PENDING if its disposition
+       is hold.  Evaluation stops at that grant.
+
+   7.  If no matched grant satisfies all of its constraints, the verdict
+       is DENY.
+
+   A relying party that cannot carry out this procedure MUST NOT
+   evaluate the transaction against mandate.actions instead.  Where
+   grants is present it is the operative member, and a verifier that
+   does not implement this section rejects the envelope rather than
+   answering a narrower question with a coarser one (Section 2.2.1).
+   Rejection here is the DENY verdict of Section 6.1, not a transport-
+   level error.
+
+2.3.  The CONSTRAINTS Block
+
+   The CONSTRAINTS block specifies limits that bound the agent's actions
+   within the MANDATE.
+
+   Relying parties MUST enforce all constraints they recognize.  A
+   relying party MUST reject an AAE if any constraint marked required:
+   true is unrecognized or cannot be evaluated.  A relying party MAY
+   ignore an unrecognized constraint only if that constraint is
+   explicitly marked required: false.  If the required member is absent,
+   the constraint MUST be treated as required: true.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 12]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   "constraints": {
+     "max_transaction_value": {
+       "value": 500,
+       "currency": "USD",
+       "required": true
+     },
+     "allowed_domains": {
+       "value": ["booking.example.com", "flights.example.com"],
+       "required": true
+     },
+     "rate_limit": {
+       "value": 10,
+       "window": "PT1H",
+       "required": false
+     }
+   }
+
+   Constraint keys are extensible.  This document defines three
+   RECOMMENDED constraint types:
+
+   *  max_transaction_value: Maximum value of any single transaction.
+      MUST include value (number) and currency (ISO 4217).
+
+   *  allowed_domains: Allowlist of domains the agent may contact.
+
+   *  rate_limit: Maximum number of actions per time window.  MUST
+      include value (integer) and window (an ISO 8601 duration, e.g.,
+      "PT1H").
+
+   A relying party that enforces a rate_limit constraint marked
+   required: true MUST maintain sufficient state to count accepted
+   actions within the specified window.  A relying party that cannot
+   maintain such state MUST reject an AAE containing a required
+   rate_limit constraint.
+
+2.4.  The VALIDITY Block
+
+   The VALIDITY block specifies the temporal bounds of the
+   authorization.
+
+   "validity": {
+     "not_before": "2026-05-20T10:00:00Z",
+     "not_after": "2026-05-20T18:00:00Z",
+     "revocation_check": "https://api.moltrust.ch/aae/revocation/{id}",
+     "single_use": false
+   }
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 13]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   not_before: REQUIRED.  An RFC 3339 [RFC3339] date-time, expressed in
+   UTC with the "Z" offset.  The AAE MUST NOT be accepted before this
+   time.
+
+   not_after: REQUIRED.  An RFC 3339 [RFC3339] date-time, expressed in
+   UTC with the "Z" offset.  The AAE MUST NOT be accepted after this
+   time.  Relying parties MUST reject expired AAEs.
+
+   revocation_check: OPTIONAL.  An HTTPS URI Template [RFC6570] for
+   checking AAE revocation status.  The template MUST support the {id}
+   variable, expanding (with URI encoding) to the Verifiable Credential
+   id, and SHOULD support the {did} variable, expanding to
+   credentialSubject.id.  If revocation_check is present, the relying
+   party MUST query the endpoint over HTTPS; the response MUST be a JSON
+   object containing at least an id member and a boolean revoked member.
+   The relying party MUST reject the AAE if the endpoint indicates
+   revoked: true or if the response cannot be parsed.  If revocation
+   status cannot be determined — for example, on network failure or an
+   HTTP 5xx response — the relying party MUST reject the AAE.  A relying
+   party MAY apply an explicit, locally configured, auditable fail-open
+   policy only for AAEs whose risk classification permits such
+   behaviour; such a policy SHOULD NOT be used for high-risk actions and
+   MUST be subject to explicit governance and audit logging.
+
+   single_use: OPTIONAL.  Boolean.  Default: false.  If true, the
+   relying party MUST maintain state keyed by the Verifiable Credential
+   id (Section 2.1) and MUST reject any subsequent presentation of an
+   AAE bearing the same id after the first successful authorization.  A
+   relying party that cannot maintain such state MUST reject any AAE
+   with single_use: true.  Where a relying party is deployed across
+   multiple nodes, the single-use state MUST be shared across all nodes
+   that can accept the AAE; otherwise the AAE could be replayed against
+   a different node.  In this document, "invalidation" denotes relying-
+   party-local state; it does not invalidate the AAE globally.
+
+   If the Verifiable Credential contains a validFrom member, the relying
+   party MUST NOT accept the AAE before the later of validFrom and
+   validity.not_before.  Issuers SHOULD set validFrom equal to or
+   earlier than validity.not_before.
+
+
+
+
+
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 14]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   A verdict under Section 2.5 is a function of the mandate and the
+   transaction.  It says nothing about whether a condition that held
+   when the mandate was issued still holds at the moment the action is
+   attempted.  Answering that requires state carried across
+   presentations — a counter that advanced, an identifier already spent,
+   an attestation of recency — and the runtime core of Section 2.5.3
+   holds none by construction, since carrying such state would break the
+   recompute determinism that section requires.  The members defined
+   above bound the authorization in time; they do not make it fresh.
+   See Section 9.
+
+2.5.  Enforcement Constraint Language
+
+   This section defines a constraint language used by grants
+   (Section 2.2.1).  It is separate from the CONSTRAINTS block of
+   Section 2.3 and does not modify it.  Section 2.3 defines an open,
+   extensible set of named constraint keys evaluated by a relying party
+   that may consult stored state; the language here is closed and
+   evaluates a single transaction with no state at all.  The two
+   coexist: an AAE MAY carry a Section 2.3 CONSTRAINTS block and
+   Section 2.2.1 grants, and a relying party evaluates each on its own
+   terms.
+
+   Recompute determinism is the reason for the separation.  Two
+   independent verifiers MUST reach an identical result from identical
+   inputs, and that holds only if the constraint language is not a
+   program.
+
+2.5.1.  Closed Type Set
+
+   A constraint is an object with a type member.  This document defines
+   exactly three types, and the set is closed.  A relying party MUST
+   evaluate a constraint whose type is exact, enum, or range as defined
+   below, and MUST treat a constraint of any other type as failed.  An
+   unrecognized type MUST NOT be ignored: what a verifier cannot
+   evaluate, it does not permit.
+
+   Each constraint names a field, a dotted path resolved against the
+   transaction by dictionary traversal only.  A path segment MUST NOT be
+   empty.  A relying party MUST support paths of at least 8 segments and
+   MAY reject a deeper path.  A field that is not present is a failed
+   predicate, not an error.
+
+
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 15]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   *  exact — { "type": "exact", "field": ..., "value": <string> }. The
+      predicate holds when the transaction value is a string equal to
+      value.  Comparison is byte-exact and performed in constant time.
+      There is no prefix matching, no suffix matching, no normalization
+      and no case folding.  An address sharing a prefix with the
+      expected value fails.
+
+   *  enum — { "type": "enum", "field": ..., "values": [<string>, ...]
+      }. The predicate holds when the transaction value is a string
+      exactly equal to one member. values MUST be a non-empty array; a
+      relying party MUST support at least 512 members and MAY reject a
+      larger set.  Every member MUST be compared; an implementation MUST
+      NOT short-circuit on the first match, so that the position of the
+      match is not observable.
+
+   *  range — { "type": "range", "field": ..., "lo": <integer>, "hi":
+      <integer> }. The predicate holds when the transaction value is an
+      integer and lo <= value <= hi, both bounds inclusive.  Bounds and
+      value MUST be integers; a relying party MUST support integers of
+      absolute value up to at least 10^15 and MAY reject a larger
+      magnitude.  Floating-point numbers, decimal fractions and exponent
+      notation are not values of this type, and neither is a JSON
+      boolean.  A constraint whose bounds are inverted fails.
+
+   Every predicate MUST be explainable in one line, MUST evaluate
+   deterministically, and MUST NOT depend on a clock, a counter, stored
+   state, or any input other than the constraint and the transaction.
+
+2.5.2.  Predicate Trace
+
+   A verdict MUST carry a predicate trace: an ordered array with one
+   entry per predicate the relying party evaluated, in evaluation order.
+   Each entry is an object:
+
+   {
+     "predicate": "range",
+     "field": "amount",
+     "value": 500,
+     "bound": { "lo": 0, "hi": 1000 },
+     "result": "PASS"
+   }
+
+   value is what the transaction carried at field, and bound is what the
+   constraint required. result is PASS or FAIL.  These five members are
+   the digested ones (Section 2.5.3).  An entry MAY carry a further
+   reason member for a human reader; it is diagnostic and is not
+   digested.
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 16]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   A verdict reporting only its outcome is not conformant: the trace is
+   what makes the outcome checkable predicate by predicate, and it is
+   the difference between a signed result and a recomputable one.
+
+   The trace MUST include the structural predicates as well as the
+   constraint predicates — whether a mandate was present, whether the
+   action bound to a grant, and which disposition applied — so that a
+   DENY reached before any constraint was evaluated still says why.
+
+   value and bound are transaction content and constraint content in the
+   clear.  A verdict record therefore discloses what was tested and what
+   it was tested against, to everyone who holds the record.  That is a
+   property of this design rather than an oversight, and Section 7.8
+   states what a relying party has to do about it.
+
+2.5.3.  Recompute Determinism
+
+   A relying party MUST produce a verdict core containing nothing that
+   cannot be reconstructed from the mandate, the transaction, and the
+   caller-supplied predecessor digest.  It MUST NOT include server time,
+   random values, stored counters, or accumulated budget.
+
+   The core is:
+
+   {
+     "enforce_version":    "<string>",
+     "mandate_digest":     "sha256:<64 lowercase hex characters>",
+     "transaction_digest": "sha256:<64 lowercase hex characters>",
+     "action_digest":      "sha256:<64 lowercase hex characters>",
+     "verdict":            "PERMIT | DENY | PENDING",
+     "grant_index":        0,
+     "trace":              [],
+     "prev_core_digest":   "sha256:<64 lowercase hex characters>"
+   }
+
+   grant_index is an integer or null, and prev_core_digest is a digest
+   string or null. trace carries the predicate entries of Section 2.5.2.
+
+   mandate_digest and transaction_digest are computed as in
+   Section 2.2.2 with the domain tags aae:enforce-mandate:v1 and
+   aae:enforce-transaction:v1 respectively, each followed by a 0x00
+   octet.
+
+   The core digest is computed the same way as every other digest in
+   this document:
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 17]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   core_digest = "sha256:" || LOWERHEX( SHA-256( TAG || JCS(core) ) )
+
+   TAG = the 19 octets "aae:enforce-core:v1" followed by a single
+         0x00 octet
+
+   Canonicalization is what makes the guarantee below reachable at all:
+   without a fixed serialization, two verifiers producing the same core
+   object would still produce different octets from it.
+
+   *Only reproducible fields are digested.* The core carries no free
+   text.  Every predicate entry in trace contributes its structured
+   members — predicate, field, value, bound, result — and those are
+   functions of the mandate and the transaction, so a second
+   implementation derives them rather than copying them.  The human-
+   readable reason, both the one on the verdict and the one on each
+   predicate entry, is diagnostic output: a relying party MUST return it
+   in the response, and it MUST NOT be part of the digested core.  A
+   reason string is written for a person reading a log; wording that two
+   implementations need not agree on has no place in a value they must
+   agree on byte for byte.
+
+   Two independent verifiers evaluating the same mandate and the same
+   transaction MUST produce byte-identical core digests.  A verifier
+   that cannot make this guarantee MUST NOT claim conformance with this
+   section.
+
+3.  Delegation Chains
+
+   An agent may act under a mandate delegated from another agent.  An
+   AAE issued directly by a principal, and not itself delegated, is a
+   _root AAE_: it has no delegation member, and its effective delegation
+   depth is 0.  A root AAE that authorizes onward delegation MUST
+   include a delegation_policy object in its MANDATE block with a non-
+   negative integer max_depth member; this value is the parent's
+   effective maximum depth for the first delegation link.
+
+   "mandate": {
+     "actions": ["read", "book"],
+     "delegation_policy": { "max_depth": 2 }
+   }
+
+   A _delegated AAE_ carries a delegation object in its MANDATE block:
+
+
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 18]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   "mandate": {
+     "actions": ["read"],
+     "delegation": {
+       "delegator_did": "did:example:parent-agent",
+       "delegator_aae_id": "urn:uuid:parent-aae-123",
+       "delegator_aae_uri": "https://aae.example/p/parent-aae-123",
+       "delegator_aae_hash": "sha-256:5b7e2c...",
+       "depth": 1,
+       "max_depth": 2
+     }
+   }
+
+   delegator_did: REQUIRED in delegation context.  The DID of the
+   delegating agent.
+
+   delegator_aae_id: REQUIRED in delegation context.  The id of the
+   parent AAE.
+
+   delegator_aae_uri: REQUIRED in delegation context, unless the parent
+   AAE is embedded in the request by the transport binding.  A URI from
+   which the relying party can retrieve the parent AAE.
+
+   delegator_aae_hash: OPTIONAL.  A hash of the parent secured AAE.  If
+   present, the value MUST have the form sha-256:<base64url-encoded-
+   digest>.  The digest input MUST be the exact ASCII octet sequence of
+   the parent AAE JWS compact serialization as retrieved, without
+   additional whitespace, decoding, re-encoding, or JSON
+   canonicalization.  SHA-256 is as defined in [RFC6234].  If the
+   computed digest does not match the value in delegator_aae_hash, the
+   relying party MUST reject the delegated AAE.
+
+   depth: REQUIRED in delegation context.  Integer.  The delegation
+   depth of this AAE.  It MUST equal the parent AAE's effective
+   delegation depth plus 1.  The effective delegation depth of a root
+   AAE is 0; the effective delegation depth of a delegated AAE is its
+   delegation.depth.
+
+   max_depth: REQUIRED in delegation context.  Integer.  The maximum
+   delegation depth permitted for this branch of the chain.  It MUST be
+   less than or equal to the parent AAE's effective maximum depth — the
+   parent's delegation.max_depth if the parent is a delegated AAE, or
+   the root AAE's mandate.delegation_policy.max_depth if the parent is a
+   root AAE.  A relying party MUST reject a delegated AAE whose depth
+   exceeds its max_depth, and MUST reject any delegation whose parent is
+   a root AAE that has no delegation_policy.
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 19]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   A relying party MUST be able to retrieve the parent AAE in order to
+   verify a delegation chain.  The parent AAE's credentialSubject.id
+   MUST equal the delegated AAE's delegation.delegator_did.  Which DID
+   is permitted to sign a delegated AAE — the signing-authority rule —
+   is specified in the Verification Algorithm (Section 5).
+
+   Delegated AAEs MUST NOT grant actions not present in the parent AAE.
+   Delegated AAEs MUST be strictly subordinate to their parent AAE.  For
+   the purposes of this document, "equal to or more restrictive" is
+   defined per element as follows:
+
+   *  *Actions*: The delegated mandate.actions MUST be a subset of the
+      parent mandate.actions.  If the delegated MANDATE contains the
+      delegate action, the parent MANDATE MUST also contain it.
+
+   *  *Numeric upper-bound constraints* (for example,
+      max_transaction_value): The delegated value MUST be less than or
+      equal to the parent value.
+
+   *  *Rate-limit constraints* (rate_limit): A delegated rate_limit
+      constraint is equal to or more restrictive than the parent only if
+      the relying party can prove that no execution pattern permitted by
+      the delegated rate limit would violate the parent rate limit.  In
+      the absence of a profile defining such comparison semantics, the
+      delegated rate_limit MUST use the same window value as the parent
+      constraint, and the delegated value MUST be less than or equal to
+      the parent value; if the windows differ and no such profile
+      applies, the delegated AAE MUST be rejected.
+
+   *  *Allowlist constraints* (for example, allowed_domains): The
+      delegated value MUST be a subset of the parent value.
+
+   *  *Validity*: The delegated validity.not_before MUST be greater than
+      or equal to the parent validity.not_before, and the delegated
+      validity.not_after MUST be less than or equal to the parent
+      validity.not_after.
+
+   *  *Delegation depth*: The delegated delegation.depth MUST equal the
+      parent AAE's effective delegation depth plus 1; the delegated
+      delegation.max_depth MUST be less than or equal to the parent
+      AAE's effective maximum depth; and delegation.depth MUST NOT
+      exceed delegation.max_depth.
+
+   Every constraint present in the parent AAE that is marked required:
+   true, or for which the required member is absent and is therefore
+   treated as required: true (Section 2.3), MUST also be present in the
+   delegated AAE and MUST either be marked required: true or omit the
+   required member.  A delegated AAE MUST NOT omit, downgrade, or change
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 20]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   to required: false any parent constraint that is required by this
+   rule.  A delegated AAE MAY introduce additional constraints, provided
+   they do not contradict the parent constraints.  For currency-valued
+   constraints (for example, max_transaction_value), the delegated
+   constraint MUST use the same currency as the parent constraint,
+   unless the relying party has an explicitly configured and auditable
+   currency-conversion policy; if the currencies differ and no such
+   policy exists, the delegated AAE MUST be rejected.
+
+   If a relying party cannot determine whether a delegated element is
+   equal to or more restrictive than the corresponding parent element,
+   the delegated AAE MUST be rejected.
+
+   A delegation chain as described here is presented by the agent and
+   evaluated by the party it approaches.  [PEDIGREE] describes
+   delegation identity from the supplier side of the same relationship —
+   how a delegating system mints and narrows the authority it hands on.
+   It is cited here for the reader's orientation only.  This document
+   defines no dependency on it, derives no requirement from it, and its
+   own verification algorithm is unchanged by it.
+
+4.  Action Vocabulary Schemas
+
+   Interoperability across relying parties requires shared action
+   vocabularies.  This document defines a minimal common vocabulary:
+
+         +==========+===========================================+
+         | Action   | Semantics                                 |
+         +==========+===========================================+
+         | read     | Retrieve information without side effects |
+         +----------+-------------------------------------------+
+         | write    | Create or modify state                    |
+         +----------+-------------------------------------------+
+         | delete   | Remove state                              |
+         +----------+-------------------------------------------+
+         | pay      | Initiate a payment or financial transfer  |
+         +----------+-------------------------------------------+
+         | invoke   | Call an external API or service           |
+         +----------+-------------------------------------------+
+         | delegate | Issue a delegated AAE to a sub-agent      |
+         +----------+-------------------------------------------+
+
+                                 Table 1
+
+   Vertical-specific vocabularies (travel, finance, healthcare) SHOULD
+   be published as extensions to this base vocabulary, as stable and
+   versioned schemas at publicly accessible URIs.  This document does
+   not create an IANA registry for action vocabularies.
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 21]
+
+Internet-Draft                     AAE                    September 2026
+
+
+5.  Verification Algorithm
+
+   A relying party receiving an agent request with an attached AAE MUST
+   perform the following checks in order:
+
+   1.  *Signature verification*: Parse the JWS in compact serialization
+       and read the protected header.  The _signing DID_ is the DID
+       portion of the kid parameter.  Resolve the signing DID,
+       dereference the referenced verification method, and confirm that
+       (a) the verification method is present in that DID document, (b)
+       it is authorized for the assertionMethod proof purpose, (c) it
+       contains or resolves to a JWK with kty: "OKP" and crv: "Ed25519",
+       and (d) the JWS signature validates under that key.  Reject the
+       AAE if the signing DID cannot be resolved, the verification
+       method is absent or not authorized for assertionMethod, the key
+       is not Ed25519, the alg is not "EdDSA", or the signature is
+       invalid.
+
+       The relying party MUST then verify signing authority.  For a non-
+       delegated AAE (no mandate.delegation member), the signing DID
+       MUST be identical to the Verifiable Credential issuer.  For a
+       delegated AAE, the signing DID MUST satisfy one of the following:
+       (a) it is identical to mandate.delegation.delegator_did, and the
+       Verifiable Credential issuer is also identical to that DID; or
+       (b) it is explicitly authorized by
+       mandate.delegation.delegator_did to issue delegated AAEs on that
+       delegator's behalf, where the authorization is represented by a
+       verification method or service entry in the delegator's DID
+       document.  If signing authority cannot be established under the
+       applicable rule — or, for case (b), the relying party does not
+       understand the authorization mechanism — the AAE MUST be
+       rejected.
+
+   2.  *Payload and schema validation*: Parse the JWS payload as UTF-
+       8-encoded JSON.  The payload MUST be a W3C Verifiable Credential
+       containing id, issuer, credentialSubject.id, and
+       credentialSubject.aae.  The aae object MUST contain mandate,
+       constraints, and validity.  The protected-header cty parameter
+       MUST equal "aae+json".  Reject the AAE if any required member is
+       absent, has the wrong JSON type, or otherwise violates the
+       structural requirements of this document.
+
+   3.  *Temporal validity*: Confirm current time is within not_before
+       and not_after.  Reject if outside bounds.  Beyond these two
+       members, Section 2.4 requires that a relying party MUST NOT
+       accept the AAE before the later of validFrom and
+       validity.not_before where the Verifiable Credential carries a
+       validFrom member.  That requirement is normative in Section 2.4
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 22]
+
+Internet-Draft                     AAE                    September 2026
+
+
+       and is neither restated nor altered here; it is recalled because
+       an implementer working from this algorithm alone would otherwise
+       have no reason to look for it.
+
+   4.  *Subject binding*: The relying party MUST establish that the
+       agent presenting the AAE controls credentialSubject.id before
+       accepting it.
+
+       The relying party MUST generate a fresh, unpredictable nonce of
+       at least 128 bits and send it to the agent together with an
+       audience identifier that names this relying party and the aae_id
+       of the envelope under verification.  The nonce MUST carry a proof
+       of its own origin that the relying party can check without
+       consulting stored state — a keyed authenticator over the nonce
+       and its expiry is sufficient — so that condition (c) below does
+       not require a lookup merely to establish provenance.
+
+       The agent MUST return a JWS in compact serialization whose
+       payload is the UTF-8 encoding of a JSON object with exactly these
+       four members:
+
+      {
+        "nonce":  "<relying-party nonce>",
+        "aud":    "<relying-party audience identifier>",
+        "iat":    "<RFC 3339 UTC timestamp>",
+        "aae_id": "<Verifiable Credential id>"
+      }
+
+       A payload carrying any further member, or missing one of these,
+       MUST be rejected.  The protected header MUST contain "alg":
+       "EdDSA" and a kid DID URL whose DID portion equals
+       credentialSubject.id.
+
+       The relying party MUST reject the AAE unless all of the following
+       hold:
+
+       (a) the challenge-response signature is valid under a key
+       controlled by credentialSubject.id; (b) the referenced
+       verification method is authorized under the authentication
+       relationship in the resolved DID document — assertionMethod does
+       not satisfy this, because the two relationships answer different
+       questions; (c) the nonce was generated by this relying party and
+       has not been used before; (d) aud identifies this relying party;
+       (e) aae_id equals the Verifiable Credential id; and (f) iat lies
+       within the relying party's accepted clock-skew window.
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 23]
+
+Internet-Draft                     AAE                    September 2026
+
+
+       Condition (c) has two halves that are satisfied differently.
+       Provenance follows from the authenticator on the nonce and needs
+       no state.  Single use does need state: the relying party MUST
+       record each accepted nonce and MUST reject a second presentation
+       of it.  A relying party SHOULD store only a digest of the nonce
+       rather than the nonce itself; the check is an equality test, and
+       the stored value never has to be read back.
+
+       *Nonce format and lifetime.* The nonce is opaque to the agent,
+       which returns it unchanged.  Its structure is fixed here so that
+       condition (c) is checkable without a lookup and so that a third
+       party can distinguish a malformed challenge from a rejected one:
+
+      nonce = <random> "." <expiry> "." <authenticator>
+
+      <random>        at least 128 bits of unpredictable data,
+                      lowercase hexadecimal
+      <expiry>        the absolute expiry, as seconds since the Unix
+                      epoch, in decimal
+      <authenticator> HMAC-SHA-256 over the ASCII string
+                        <random> "." <expiry> "." <aud> "." <aae_id>
+                      under a key held by the relying party,
+                      encoded base64url without padding
+
+       HMAC is as specified in [RFC2104] and base64url as in [RFC4648].
+       Three properties follow from what is inside the authenticated
+       input, and each is required.  The expiry is authenticated, so the
+       party presenting a nonce cannot extend it; a relying party MUST
+       verify the authenticator, in constant time, _before_ reading the
+       expiry as a bound, and MUST reject a nonce whose expiry has
+       passed.  The audience is authenticated, so a nonce minted naming
+       one relying party MUST NOT verify at another.  The envelope is
+       authenticated, so a nonce minted for one aae_id MUST NOT verify
+       for another, and a challenge answered for a cheap envelope cannot
+       be replayed against an expensive one.
+
+       The key MUST be domain-separated from every other authenticator
+       the relying party issues, so that a token minted in one flow
+       never verifies in another.
+
+       The lifetime is local policy and this document fixes no value; it
+       MUST be finite, and it MUST be the value carried in the token
+       rather than one applied at verification time.  A relying party
+       MUST reject a challenge response whose nonce does not match the
+       form above, whose authenticator does not verify, or whose expiry
+       has passed — in that order, since the later tests read fields the
+       authenticator has not yet vouched for.
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 24]
+
+Internet-Draft                     AAE                    September 2026
+
+
+       *Single use and the used-nonce store.* The store is keyed by a
+       digest of the nonce and holds nothing else that a verifier reads
+       back.  Three rules make it a replay barrier rather than a cache.
+       The record MUST be created as part of accepting the response, in
+       a way that a second concurrent presentation of the same nonce
+       cannot also succeed; an insert that fails because the key already
+       exists is the rejection, and a read-then-write is not sufficient,
+       because two presentations can both read absence.  The record MUST
+       be retained at least until the nonce's own expiry, since evicting
+       earlier reopens replay for the remainder of the lifetime;
+       retention beyond expiry is not required, because an expired nonce
+       is already rejected by the origin check.  And where the store
+       cannot be reached, the relying party MUST fail closed and reject
+       the response: single use is the one condition that cannot be
+       established from the token alone, so an unavailable store means
+       the condition is unestablished, not satisfied.
+
+       *iat, the nonce lifetime, and clock skew.* iat is an RFC 3339
+       [RFC3339] timestamp carrying a UTC offset, not a JWT NumericDate;
+       a relying party MUST reject an iat that is not such a string or
+       that carries no offset.  Condition (f) is a two-sided window, and
+       the two sides are not the same quantity. iat MUST NOT be later
+       than the relying party's clock plus its accepted skew — this side
+       is clock skew alone, since a response cannot legitimately be
+       signed in the future. iat MUST NOT be earlier than the relying
+       party's clock minus the nonce lifetime and the skew — this side
+       is the lifetime the nonce already carries, so a response claiming
+       to predate the earliest moment its challenge could have been
+       minted is refused regardless of what the nonce says.  The nonce
+       expiry and iat bound the exchange from opposite directions and
+       neither replaces the other: the expiry bounds how long the
+       relying party will still accept the nonce, iat bounds when the
+       agent claims to have signed, and a relying party MUST check both.
+
+       *JOSE profile for the challenge response.* The response is an
+       externally supplied JWS, and "exactly four members" is a
+       statement about a token only once the parser is pinned down.
+       This profile pins it down.
+
+       *  The response MUST be a compact JWS with three parts.  A
+          relying party MUST bound its size before it decodes, parses,
+          or verifies anything.
+
+       *  alg MUST be "EdDSA" and the curve MUST be Ed25519 [RFC8032].
+          A relying party MUST verify against an explicit allowlist of
+          algorithms and MUST NOT take the algorithm to use from the
+          header of the token it is checking.
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 25]
+
+Internet-Draft                     AAE                    September 2026
+
+
+       *  The payload MUST be base64url-encoded.  A relying party MUST
+          reject "b64": false [RFC7797] and MUST reject a detached
+          payload.
+
+       *  A relying party MUST reject a protected header carrying crit.
+          This profile defines no critical extension, so any value of
+          crit names something the relying party does not implement, and
+          [RFC7515] requires rejection in exactly that case.
+
+       *  Duplicate member names MUST be rejected rather than resolved,
+          in the protected header and in the payload alike.  Without
+          that rule, "exactly four members" describes a parser and not a
+          token: a last-wins parser reads a payload naming nonce twice
+          as four members and accepts what a first-wins parser rejects.
+          The header carries the same risk in a sharper form — a header
+          naming kid twice, or alg twice, leaves the verification method
+          and the algorithm decided by the parser rather than by the
+          token — so a relying party MUST apply the rule before it reads
+          any header member and before it fetches any key.
+
+       *  The payload MUST be a JSON object with exactly the four
+          members named above.
+
+       *  A relying party MUST reject a challenge response whose header
+          carries the content type of an AAE envelope, so that an
+          envelope cannot be presented as its own proof of possession.
+
+       *DID URL comparison and resolution failure.* kid MUST be a DID
+       URL: a DID, a "#", and a non-empty fragment naming a verification
+       method.  A relying party MUST reject a kid with no fragment, with
+       an empty fragment, or with an empty DID part.  The DID portion of
+       kid MUST equal credentialSubject.id compared as an exact octet
+       sequence; a relying party MUST NOT normalize, percent-decode,
+       case-fold, or resolve either side before comparing.  It MUST
+       reject a non-ASCII kid — look-alike characters would otherwise
+       let two distinct DIDs compare as one to a reader while differing
+       to the verifier — and MUST reject a kid containing "/", "\", or
+       "..", which have no meaning in this position and reach path
+       handling in a resolver that treats the value as a locator.  Where
+       the DID cannot be resolved, where the resolved document names no
+       verification method matching kid, or where the DID method is one
+       the relying party does not implement, the relying party MUST
+       reject: a resolution failure is never a reason to skip condition
+       (b).  Where resolution would require an outbound request, see
+       Section 5.2.
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 26]
+
+Internet-Draft                     AAE                    September 2026
+
+
+       This challenge-response exchange is the proof of possession
+       defined by this document.  A relying party that performs it needs
+       no separate transport-level or protocol-level possession input to
+       establish that the presenting agent controls
+       credentialSubject.id.
+
+   5.  *Single-use check*: If validity.single_use is true, the relying
+       party MUST perform an atomic check-and-record operation keyed by
+       the Verifiable Credential id.  An id that has already been
+       recorded MUST be rejected.  Where the relying party is deployed
+       across multiple nodes, this state MUST be shared across all
+       nodes; concurrent presentations of the same id MUST NOT both
+       succeed.
+
+   6.  *Action check*: Confirm the requested action is present in
+       mandate.actions.  Reject if absent.
+
+   7.  *Constraint evaluation*: For each constraint in the CONSTRAINTS
+       block, the relying party MUST enforce every constraint it
+       recognizes.  If a recognized constraint marked required: true (or
+       with required absent) cannot be evaluated, the relying party MUST
+       reject the AAE.  If a recognized constraint marked required:
+       false cannot be evaluated, the relying party MAY ignore that
+       constraint.  If a constraint is unrecognized, the relying party
+       MUST reject the AAE unless that constraint is explicitly marked
+       required: false.  The relying party MUST reject the AAE if any
+       enforced constraint is violated.
+
+   8.  *Revocation check* (if applicable): If validity.revocation_check
+       is present, the relying party MUST query the endpoint over HTTPS
+       and evaluate the result as specified for revocation_check in
+       Section 2.4, including the limited fail-open exception defined
+       there.
+
+   9.  *Delegation chain* (if applicable): Where the AAE under
+       verification is delegated, the relying party MUST verify the
+       whole chain of ancestors, not only the envelope presented to it.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 27]
+
+Internet-Draft                     AAE                    September 2026
+
+
+       *Wire format for the chain.* Ancestors travel in a member
+       ancestor_jws, an array of compact JWS strings.  The array is
+       _not_ ordered: a relying party MUST index the supplied ancestors
+       by the Verifiable Credential id each one carries, and MUST walk
+       the chain by following mandate.delegation.delegator_aae_id from
+       the presented AAE outward.  Requiring an order would add a second
+       thing that can be wrong without adding anything a verifier needs,
+       since the pointer already says which parent belongs to which
+       child.  A relying party MUST bound the supplied material before
+       verifying any of it, and MUST support at least 16 inline
+       ancestors.
+
+       Each link is then checked against the parent actually supplied.
+       mandate.delegation.delegator_aae_id names the parent; if no
+       supplied ancestor carries that id, the verdict is DENY — unless
+       the delegation names only delegator_aae_uri, which is deferred
+       (Section 5.2). mandate.delegation.delegator_aae_hash MUST match
+       that parent: the digest is taken over the exact ASCII octet
+       sequence of the inline JWS as supplied, with no canonicalization,
+       no domain tag, encoded base64url [RFC4648] — the construction of
+       Section 3.  "As retrieved" here means as received in the request:
+       there is no fetch, so the octets the caller handed over are the
+       octets that are hashed, and a mismatch is DENY.  The parent's
+       credentialSubject.id MUST equal the child's
+       mandate.delegation.delegator_did.  The same id MUST NOT be
+       supplied twice: two ancestors claiming one identity make the
+       chain ambiguous, and the relying party MUST reject rather than
+       pick one.
+
+       A relying party conforming to this revision MUST NOT fetch an
+       ancestor over the network; retrieval by delegator_aae_uri is
+       addressed in Section 5.2.  Steps 1 and 2 MUST be performed over
+       every ancestor.  Steps 4 and 5 MUST NOT be: subject binding and
+       single-use consumption concern the envelope actually presented,
+       and an ancestor is not being presented.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 28]
+
+Internet-Draft                     AAE                    September 2026
+
+
+       Across every delegation step, the child MUST be no broader than
+       its parent: every action in the child's mandate.actions MUST also
+       appear in the parent's; a numeric limit MUST NOT exceed the
+       parent's, and only limits denominated in the same currency are
+       comparable, so a differing currency MUST be rejected rather than
+       converted; a rate_limit MUST NOT exceed the parent's and is
+       comparable only where the window is identical; an allowlist MUST
+       be a subset of the parent's; the validity window MUST nest, with
+       not_before no earlier than the parent's and not_after no later;
+       every constraint the parent marks required: true MUST be present
+       in the child and MUST NOT be relaxed to required: false; and
+       where a constraint type is unrecognized and parent and child
+       differ in it, the relying party MUST reject the chain rather than
+       assume the difference is narrowing.
+
+       *Grant attenuation.* Where either AAE in a delegation step
+       carries grants (Section 2.2.1), the narrowing rules apply to the
+       grants as well.  Checking only mandate.actions would leave the
+       finer member unconstrained, and a child could then permit under
+       conditions its parent forbids while still naming only actions the
+       parent allows.
+
+       Every grant in the child MUST be covered by a grant in the
+       parent: one whose action_binding is equal, and whose constraints
+       the child's constraints imply.  A child grant that no parent
+       grant covers is an extension of authority, and the relying party
+       MUST reject the chain.
+
+       The three dispositions order as allow <= hold <= forbid, from
+       most permissive to least.  A child MUST NOT move a disposition
+       down this order: allow may become hold or forbid and hold may
+       become forbid, while hold or forbid becoming allow MUST be
+       rejected.  The order is what makes "no broader than its parent"
+       decidable for a member that is not a number.
+
+       For the three constraint types of Section 2.5, a child constraint
+       implies its parent's when, for exact, the child's value equals
+       the parent's — an exact constraint admits exactly one value, so a
+       differing one is neither narrower nor broader but simply another
+       constraint, and the relying party MUST reject it; for enum, the
+       child's values are a subset of the parent's; and for range, the
+       child's interval lies inside the parent's, with lo no lower than
+       the parent's lo and hi no higher than the parent's hi.  A
+       constraint present in the parent and absent from the child
+       removes a bound and MUST be rejected, whatever its required flag
+       says.
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 29]
+
+Internet-Draft                     AAE                    September 2026
+
+
+       The relying party MUST maintain the set of AAE id values already
+       visited on the current path and MUST reject the chain if any id
+       appears more than once.  It MUST apply a recursion limit equal to
+       the smaller of 8 and the smallest max_depth observed anywhere in
+       the chain.  The effective expiry of the presented AAE is the
+       minimum not_after over the whole chain.
+
+       The delegator_aae_hash construction above is the one of
+       Section 3, and deliberately not the one Section 2.2.2 defines for
+       action_binding.  A value produced by one MUST NOT be compared
+       against a value produced by the other; Section 2.2.2 states why
+       the two differ.
+
+       For the signing authority of a delegated AAE, the relying party
+       MUST accept case (a) of step 1 — the signing DID is identical to
+       mandate.delegation.delegator_did and to the Verifiable Credential
+       issuer.  Case (b), where the delegator's DID document authorizes
+       another DID to issue on its behalf, MUST be rejected by a relying
+       party that does not understand the authorization mechanism, which
+       is what this revision requires; see Section 5.2.
+
+   Steps 1–7 are REQUIRED.  Steps 8–9 are conditional on presence of the
+   relevant fields.
+
+5.1.  Verification Dependencies
+
+   The checks above are evaluated by the relying party against the
+   presented AAE and its ancestors.  This document defines no step in
+   which the relying party contacts the organization that originated the
+   authorization in order to obtain an authorization decision: the AAE
+   carries the authorization and the relying party evaluates it.
+
+   The algorithm does depend on data the relying party may have to
+   retrieve:
+
+   *  the DID documents needed to resolve the signing DID in step 1 and,
+      where step 4 is performed, credentialSubject.id;
+
+   *  each ancestor AAE of a delegation chain in step 9, obtained from
+      delegation.delegator_aae_uri unless the transport binding conveys
+      the ancestor inline as described in Section 3;
+
+   *  the endpoint named in validity.revocation_check, queried over
+      HTTPS, where that member is present (step 8).
+
+   These are retrieval dependencies, not authorization callbacks.  This
+   document does not constrain how a relying party obtains them, and
+   Section 3 already contemplates an ancestor conveyed inline rather
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 30]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   than fetched.  Verification therefore requires no synchronous call to
+   the originating organization, but characterising it as offline
+   without qualification is inaccurate for any AAE that carries a
+   delegation chain or a revocation_check member.
+
+5.2.  Deferred Verification Capabilities
+
+   Four capabilities named elsewhere in this document are not available
+   in this revision, and all four wait on the same thing: a relying
+   party can only make them safe once it can perform outbound requests
+   through a proxy that constrains where those requests may go.  Until
+   such a proxy exists, a conforming implementation refuses rather than
+   pretends.
+
+   *  *Ancestor retrieval by delegator_aae_uri.* Step 9 verifies
+      ancestors supplied inline.  A relying party MUST NOT dereference
+      delegator_aae_uri in this revision.
+
+   *  *DID methods requiring outbound resolution.* This affects the
+      subject in step 4 and the delegator in step 9 alike: where the DID
+      cannot be resolved locally, the relying party rejects rather than
+      fetches.
+
+   *  *Revocation checking (step 8).* A relying party that cannot
+      perform the lookup rejects an AAE carrying revocation_check fail-
+      closed, rather than reporting a check it did not perform.  What
+      rests on this limitation is the _discovery_ half of Section 7.5 —
+      establishing that a parent has been revoked.  The consequence half
+      of that section is not deferred: a relying party that already
+      knows of the revocation MUST treat the descendants as invalid, and
+      no egress path is needed to obey a rule about what it already
+      holds.
+
+   *  *Case (b) delegated signing authority.* Establishing that a
+      delegator's DID document authorizes another DID requires resolving
+      that document, which is the second item above.
+
+   The condition for a future revision is an egress path that constrains
+   outbound requests and is available to the relying party.  All four
+   become specifiable together, because one capability unlocks all of
+   them.  Section 9 lists the relying-party revocation lookup under the
+   same condition; it is this list's third item seen from the roadmap
+   side.
+
+6.  Verdicts and Ratification
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 31]
+
+Internet-Draft                     AAE                    September 2026
+
+
+6.1.  Verdict Vocabulary
+
+   Evaluating a transaction against a mandate yields exactly one of
+   three verdicts.
+
+   *  *PERMIT* — a grant bound the action, all of that grant's
+      constraints held, and its disposition is allow.  PERMIT is
+      reachable in no other way.
+
+   *  *PENDING* — a grant bound the action, all of its constraints held,
+      and its disposition is hold.  PENDING states that the mandate
+      defers this action to a decision that has not been made.  It MUST
+      NOT be produced for an action no grant addresses.
+
+   *  *DENY* — every other outcome.  A missing or structurally invalid
+      mandate, a missing transaction, an action that cannot be
+      canonicalized, an unaddressed action, a matched forbid grant, an
+      unknown constraint type, an unparseable value, and a matched grant
+      whose constraints do not hold all produce DENY.
+
+   DENY is the default.  A relying party that cannot evaluate MUST deny;
+   absence of a mandate is never a route to PERMIT.
+
+6.2.  Verdict Records and Chaining
+
+   A verdict record consists of the core of Section 2.5.3 and its
+   digest.  A record is immutable.  A relying party MUST NOT edit a
+   record after it is produced.
+
+   Verdict records MAY be chained.  A record's prev_core_digest carries
+   the core digest of the record it follows, or null at the start of a
+   chain.  The caller holds the chain; this document does not require a
+   chain to be published, stored, or anchored to any ledger.
+
+   A ratification record is the exception.  Its prev_core_digest MUST be
+   present and MUST equal the core digest of the record it ratifies.  A
+   ratification is a statement about one specific prior record, and a
+   chaining field pointing anywhere else would describe a different
+   history than the one the ratification asserts.  A verifier MUST
+   reject a ratification record whose prev_core_digest is absent or does
+   not equal the digest it claims to ratify.
+
+6.3.  Ratification
+
+   A verdict may need a status it did not have when it was produced — an
+   action held under PENDING that the mandating party later authorizes,
+   or a denial that party subsequently confirms.  This document corrects
+   such history by appending, never by editing.
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 32]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   A ratification is a second signed record referencing a prior verdict
+   record by its core digest.  It carries a decision, which is either
+   APPROVED or DISAPPROVED, and it reports a status, which is either
+   RATIFIED or REJECTED.  The decision is what the ratifying party
+   asserts; the status is what the verifier established about that
+   assertion.  A decision takes effect for the prior record only when
+   the status is RATIFIED.  When the status is REJECTED, the prior
+   record keeps the verdict it had, and the ratification records why the
+   assertion did not hold.
+
+   *What the decision is about.* APPROVED and DISAPPROVED are statements
+   about the *action*, not about the verdict record.  APPROVED says the
+   authority authorizes the action the prior record describes;
+   DISAPPROVED says it does not.  Reading them the other way — as an
+   endorsement or a rejection of the verdict — would make APPROVED mean
+   "the denial was right" in one row of the matrix below and "the action
+   may proceed" in another, and a party signing a statement would not
+   know which it had signed.  One reading, fixed here: the decision is
+   about the action.
+
+   The four combinations of a ratifiable prior verdict and a decision
+   therefore resolve as follows, in every case only where status is
+   RATIFIED:
+
+    +=========+=============+========================+===============+
+    | Prior   | Decision    | The action is          | The prior     |
+    | verdict |             |                        | record        |
+    +=========+=============+========================+===============+
+    | PENDING | APPROVED    | authorized             | unchanged; it |
+    |         |             |                        | still reads   |
+    |         |             |                        | PENDING       |
+    +---------+-------------+------------------------+---------------+
+    | PENDING | DISAPPROVED | not authorized; the    | unchanged; it |
+    |         |             | hold ends in a refusal | still reads   |
+    |         |             |                        | PENDING       |
+    +---------+-------------+------------------------+---------------+
+    | DENY    | APPROVED    | authorized despite the | unchanged; it |
+    |         |             | denial — an override   | still reads   |
+    |         |             | by the mandating party | DENY          |
+    +---------+-------------+------------------------+---------------+
+    | DENY    | DISAPPROVED | not authorized; the    | unchanged; it |
+    |         |             | denial is confirmed    | still reads   |
+    |         |             |                        | DENY          |
+    +---------+-------------+------------------------+---------------+
+
+                                 Table 2
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 33]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   Where status is REJECTED, none of the four rows takes effect: the
+   assertion did not hold, and the action's authorization is whatever
+   the prior verdict already made it.
+
+   Two consequences of the table are normative.  A relying party MUST
+   NOT edit or re-issue the prior record in any row — the effective
+   authorization is read from the pair (prior verdict, decision) carried
+   in the ratification, and no fourth verdict value is produced.  And
+   the third row, DENY with APPROVED, is an authorization the mandate
+   itself did not give: a relying party MUST NOT treat the resulting
+   record as a PERMIT of Section 6.1, MUST record that the authorization
+   derives from a ratification rather than from a grant, and MUST bound
+   it to the one transaction the prior record's transaction_digest
+   names.  A ratification authorizes one transaction, never a class of
+   them.
+
+   The signed statement binds three things together:
+
+   {
+     "ratify_version": "3.0",
+     "ratifies": "sha256:<64 lowercase hex characters>",
+     "decision": "APPROVED",
+     "authority": "<DID>"
+   }
+
+   It is signed over the domain tag aae:enforce-ratify-statement:v1
+   followed by a 0x00 octet and the [RFC8785] canonicalization of that
+   object.  Binding all three means an APPROVED signature cannot be
+   moved to another record, cannot be reread as DISAPPROVED, and cannot
+   be attributed to a different authority.
+
+   ratify_version is inside the signed bytes, so it is not decoration: a
+   party that builds the statement with a different value produces a
+   different signature over the same decision.
+
+   A ratification record carries its own core, with its own structure.
+   It is not a verdict core with different values: it has no verdict, no
+   action_digest and no grant_index, and it carries members a verdict
+   core does not.  Stating it by reference to Section 2.5.3 would leave
+   a third-party verifier guessing which of those members survive, so it
+   is written out here.
+
+
+
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 34]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   {
+     "ratify_version":   "<string>",
+     "ratifies":         "sha256:<64 lowercase hex characters>",
+     "prior_verdict":    "DENY | PENDING",
+     "decision":         "APPROVED | DISAPPROVED",
+     "status":           "RATIFIED | REJECTED",
+     "authority":        "<DID string or null>",
+     "mandate_digest":   "sha256:<64 lowercase hex characters>",
+     "trace":            [],
+     "prev_core_digest": "sha256:<64 lowercase hex characters>"
+   }
+
+   ratifies is the core digest of the record being ratified, and
+   prior_verdict is that record's verdict — only DENY and PENDING are
+   ratifiable, so no other value appears here. status is what the
+   verifier established and decision is what the authority asserted; a
+   decision takes effect for the prior record only where status is
+   RATIFIED. authority is null exactly where status is REJECTED and no
+   authority was established. mandate_digest is copied from the prior
+   record's core, which is what binds the ratification to the same
+   mandate the verdict was reached under. prev_core_digest equals
+   ratifies, as Section 6.2 requires; it is carried explicitly so that
+   the chaining member has the same name and meaning in both record
+   types. trace entries are the structured five members of
+   Section 2.5.2; as in Section 2.5.3, the human-readable reason — on
+   the record and on each entry — is diagnostic and is not digested.
+
+   The digest is computed as everywhere else in this document, under its
+   own tag:
+
+   core_digest = "sha256:" || LOWERHEX( SHA-256( TAG || JCS(core) ) )
+
+   TAG = the 26 octets "aae:enforce-ratify-core:v1" followed by a
+         single 0x00 octet
+
+   The separate tag keeps a ratification core from ever colliding with a
+   verdict core: the two structures could otherwise be confused by a
+   verifier that only compared digests.  A later record that chains onto
+   a ratification points at this digest.
+
+   Like a verdict record, a ratification record is deterministic.  Its
+   inputs are exactly three: the prior verdict record, the decision, and
+   the authority proof of Section 6.4.  The mandate is the fourth thing
+   a recomputation needs — without it the authority cannot be derived
+   and the mandate digest cannot be bound — and it is not a fourth
+   input, because it travels as a member of the authority proof.
+   Stating it that way matters: a third party holding a prior record, a
+   decision and a proof holds the mandate too, and recomputes the record
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 35]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   without contacting the verifier or fetching anything.  A proof
+   without its mandate member is not a proof, and Section 6.4 gives it
+   no other route in.
+
+6.4.  Authority (Witness, not Ruler)
+
+   The authority ratifying a record MUST derive from the mandate the
+   prior record refers to.  Two sources are permitted, both inside the
+   mandate: the issuing principal, and a role the mandate names.  A
+   verifier MUST NOT accept a ratification from any other party, and in
+   particular MUST NOT recognize the operator of the verification
+   service, a registry, or any central supervising role as an authority
+   by virtue of its position.
+
+   The public key against which the signature is checked MUST be taken
+   from the mandate and MUST NOT be taken from the proof.  A proof that
+   carries its own key establishes nothing.
+
+   *Where the authorities are named.* The two sources are two named
+   members of the mandate, and a third party checking a ratification
+   reads exactly these:
+
+   "principal": {
+     "did": "<DID>",
+     "public_key": "<32 octets, hexadecimal>"
+   },
+   "ratification_authorities": [
+     {
+       "did": "<DID>",
+       "public_key": "<32 octets, hexadecimal>",
+       "role": "<string>"
+     }
+   ]
+
+   mandate.principal is the issuing principal and contributes one
+   authority. mandate.ratification_authorities is an OPTIONAL array; a
+   relying party MUST support at least 64 entries and MAY ignore entries
+   beyond a limit of its own, and ignoring an entry can only make a
+   ratification harder to establish, never easier, so the limit is fail-
+   closed by construction.
+
+   An entry contributes an authority only where it carries *both* a did
+   string and a public_key string.  An entry with a DID and no key names
+   a party whose signature cannot be checked, which is not an authority;
+   a relying party MUST NOT treat it as one and MUST NOT fall back to
+   any other key for it.
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 36]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   role is a label, not a permission.  A relying party MUST NOT
+   interpret it, MUST NOT derive any capability from its value, and MUST
+   NOT require it: what is checked is that the claimed authority's DID
+   appears in one of the two members above, and that the signature
+   verifies under the key given there.  The role is reported alongside
+   the result so a reader can see which of the two sources applied.
+   This is what makes "a role the mandate names" checkable by a third
+   party: there is no role vocabulary to agree on, only two member names
+   and a DID.
+
+   An issuer MUST NOT name the same DID twice across the two members.
+   Two entries for one DID with different keys make the mandate
+   ambiguous about which key is authoritative, and a verifier resolving
+   that ambiguity by position would make the outcome depend on document
+   order.
+
+   *The authority proof.* The proof is an object with three REQUIRED
+   members:
+
+   {
+     "mandate": {},
+     "authority": "<DID>",
+     "signature": "<64 octets, hexadecimal>"
+   }
+
+   mandate is the full mandate, supplied because the prior record
+   carries only its digest.  The paragraph below binds it by recomputing
+   its digest against the prior record's mandate_digest; it is never
+   trusted as supplied.
+
+   authority is the DID the signer claims.  It is compared against the
+   DIDs of the two members above as an exact octet sequence, in constant
+   time.  A relying party MUST NOT normalize, percent-decode, case-fold,
+   or otherwise transform either side before comparing, and MUST NOT
+   accept a DID URL carrying a fragment or a path in this member: the
+   value is a DID, not a verification-method reference.
+
+   signature is the raw Ed25519 signature over the statement bytes of
+   Section 6.3 — the domain tag, a 0x00 octet, and the [RFC8785]
+   canonicalization of the statement object — encoded as hexadecimal.
+
+
+
+
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 37]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   The cryptographic profile is fixed: EdDSA over Ed25519 [RFC8032], a
+   32-octet public key and a 64-octet signature, both hexadecimal.
+   There is no JOSE container here and no algorithm agility: the
+   signature is over the statement bytes directly, so there is no header
+   a party could vary and nothing to negotiate.  A relying party MUST
+   reject a key or a signature of any other length, and MUST treat every
+   decoding failure as a failed signature predicate rather than as an
+   error — a malformed proof is a rejected ratification, not a crash.
+
+   Because a verdict record carries only the mandate's digest, the
+   ratifying party supplies the mandate alongside the proof.  The
+   verifier MUST bind it by recomputing the mandate digest per
+   Section 2.5.3 and comparing it against the prior record's
+   mandate_digest.  A mandate that does not match makes the proof
+   worthless and the status MUST be REJECTED.
+
+   A verifier MUST set the status to REJECTED, and MUST leave the prior
+   record's verdict standing, when any of the following holds: the
+   authority proof is absent or malformed; the supplied mandate does not
+   match the prior record's mandate digest; the claimed authority is
+   neither the issuing principal nor a role named in the mandate; or the
+   signature does not verify under the mandate-held key.  Each of these
+   MUST appear as a failed predicate in the ratification's trace.
+
+   Only DENY and PENDING may be ratified.  A PERMIT has no status to
+   change, and an attempt to ratify one is a caller error rather than a
+   rejected ratification.
+
+   The line between the two outcomes is worth stating, because both
+   refuse the request and only one of them produces a record.  A
+   *rejected ratification* is a result: the question was well posed and
+   the answer is that the authority did not hold, so there is a record
+   with a status of REJECTED and a trace saying which predicate failed.
+   A *caller error* is not a result: the question itself does not line
+   up, so there is nothing to record.  A relying party MUST treat as a
+   caller error, and MUST NOT produce a ratification record for: a
+   decision that is neither APPROVED nor DISAPPROVED; a prior record
+   whose core_digest does not match its own core; a prior record
+   carrying no mandate_digest; a prior verdict that is not DENY or
+   PENDING; and a supplied prev_core_digest that names a record other
+   than the one being ratified (Section 6.2).  Everything else — a
+   missing proof, a mandate that does not bind, an authority the mandate
+   does not name, a signature that does not verify — is a REJECTED
+   record with a trace.
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 38]
+
+Internet-Draft                     AAE                    September 2026
+
+
+7.  Security Considerations
+
+7.1.  Replay Attacks
+
+   AAEs with broad temporal validity windows are susceptible to replay
+   attacks.  Implementations SHOULD use short not_after windows (minutes
+   to hours for high-value actions) and SHOULD implement nonce-based
+   replay protection at the transport layer.
+
+   The verdict of Section 2.5.3 is a function of the mandate and the
+   transaction and of nothing else.  It carries no server time, no
+   counter, and no record of what has been presented before.  That is
+   deliberate — it is what makes a verdict recomputable by a third party
+   who was not present when it was reached — and it is also a limit that
+   has to be read as one.
+
+   A PERMIT is not a single-use authorization.  The same mandate and the
+   same transaction produce the same PERMIT every time they are
+   evaluated, at this relying party and at any other.  Section 2.5
+   provides no replay protection, no cumulative budget across
+   presentations, and no rate limit.  An agent holding a mandate whose
+   range constraint bounds a transfer at 1000 can obtain a PERMIT for a
+   transfer of 1000, and then obtain it again: the constraint bounds
+   each transfer, never their sum.  A relying party that reads a PERMIT
+   as "this action has not yet been authorized" reads something the
+   verdict does not say.
+
+   Where replay protection matters, it MUST come from the protocol
+   around the verdict rather than from the verdict.  A relying party
+   acting on a PERMIT MUST establish freshness and consumption by its
+   own means — a nonce it minted for this presentation, an identifier it
+   records as spent before acting, or an idempotency key on the action
+   it is about to perform.  A relying party that does none of these MUST
+   NOT rely on the verdict for either property.
+
+   Step 4 of Section 5 provides exactly this for the envelope: a
+   challenge bound to a nonce this relying party minted, and a used-
+   nonce store that refuses the second presentation.  Nothing equivalent
+   exists at the enforcement layer in this revision.  Section 9 names
+   the condition under which it could — state carried across
+   presentations, together with a resolution of what such state does to
+   the recompute guarantee of Section 2.5.3, since a verdict that
+   depends on a counter is no longer a function of the mandate and the
+   transaction alone.  Until that is resolved, the absence is a property
+   of this document and not an omission from it.
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 39]
+
+Internet-Draft                     AAE                    September 2026
+
+
+7.2.  Constraint Bypass
+
+   Relying parties that silently ignore unrecognized constraints create
+   a security gap.  Relying parties MUST treat unrecognized constraints
+   with required: true as grounds for rejection.
+
+7.3.  Key Compromise
+
+   If an issuer's signing key is compromised, all AAEs signed by that
+   key are potentially invalid.  Issuers MUST have an operational key-
+   rotation procedure and SHOULD publish revocation endpoints.  Issuers
+   SHOULD retain verification material for retired signing keys for at
+   least as long as AAEs signed by those keys can remain valid, unless a
+   key was retired because of compromise.  Issuers SHOULD provide a
+   mechanism for real-time revocation signaling to relying parties;
+   continuous access evaluation profiles defined by other standards
+   bodies are one such mechanism.
+
+7.4.  Delegation Amplification
+
+   Delegation chains that do not enforce constraint monotonicity allow
+   sub-agents to acquire permissions exceeding those of their parent.
+   Implementations MUST enforce that delegated AAEs are strictly
+   subordinate to their parent AAEs in actions, constraints, and
+   validity.
+
+7.5.  Delegation Revocation
+
+   The previous revision carried two SHOULD statements here.  They do
+   not stand on the same ground, and this revision separates them.
+
+   *Issuer.* If a parent AAE or a delegator agent is compromised, the
+   issuer MUST revoke the parent, and MUST treat all downstream
+   delegated AAEs as revoked.  The revocation MUST propagate along the
+   delegation chain to every descendant reachable from the revoked node.
+
+   Revocation of the parent MUST NOT be withheld because the cascade
+   could not be completed.  Of the two ways this can fail, a compromised
+   parent still reported as valid is the worse one, and withholding its
+   revocation is the only way this rule could fail open.  An issuer that
+   cannot propagate to every descendant MUST therefore report two things
+   at once: the parent as revoked, and the cascade as incomplete.  A
+   descendant of a revoked parent whose own status could not be set is
+   *unknown*, and a relying party MUST treat unknown as invalid here —
+   the same outcome as an explicit revocation, reached without claiming
+   a status the issuer never established.
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 40]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   The rule places no depth limit on the cascade, because depth is a
+   property of a deployment and not of this format.  An implementation
+   that bounds its propagation has an incomplete cascade in the sense
+   above and reports it as such; it does not report a complete one.
+
+   *Relying party.* Two statements, and only one of them waits on a
+   capability this revision defers.
+
+   A relying party that has determined that a parent AAE in a delegation
+   chain is revoked MUST treat every descendant AAE in that chain as
+   invalid.  This is unconditional, and it costs nothing to satisfy: the
+   sentence applies only once the revocation is already known — from a
+   status list the relying party already holds, from material presented
+   alongside the envelope, or from a check it performed earlier.  No
+   lookup follows from it.  A SHOULD here would permit a relying party
+   to accept a descendant of a parent it already knows to be revoked,
+   which is not a limitation of any deployment but a decision to
+   disregard what it knows.
+
+   What stays deferred is the _discovery_ of revocation, not the
+   _consequence_ of it.  A relying party SHOULD NOT dereference a
+   revocation endpoint at evaluation time in this revision: doing so
+   safely requires an egress path that constrains outbound requests, and
+   until one exists, a conforming implementation rejects an AAE carrying
+   revocation_check fail-closed rather than reporting a check it did not
+   perform (Section 5.2).  Section 9 names the condition under which the
+   discovery half becomes normative too.
+
+7.6.  Clock Skew and Time Synchronization
+
+   AAE validity depends on relying-party evaluation of not_before,
+   not_after, and challenge-response timestamps.  Relying parties SHOULD
+   use authenticated time synchronization and SHOULD define a maximum
+   accepted clock-skew window.  For high-value actions, relying parties
+   SHOULD keep the accepted skew to the minimum operationally feasible
+   value.  Excessive clock-skew windows can allow premature use of an
+   AAE or its continued use after expiration.
+
+7.7.  On-Chain Anchoring
+
+   When AAEs are anchored to a public ledger for tamper-evident audit
+   trails, implementations MUST ensure that no personally identifiable
+   information (PII) is written on-chain.  AAE content SHOULD be hashed
+   before anchoring; the hash, timestamp, and issuer DID are sufficient
+   for audit purposes.
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 41]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   Where a verdict record is anchored for audit, committing to a
+   sensitive argument value rather than writing it in the clear would
+   let an auditor confirm that an agent stayed inside a bound without
+   the value itself becoming public.  Any such commitment has to bind to
+   anchored reality rather than to caller-supplied input, since a
+   commitment over a claim is not a commitment over anything checkable.
+   This document defines no such mechanism; see Section 9.
+
+7.8.  Predicate Trace Disclosure
+
+   Section 2.5.2 requires every verdict to carry a predicate trace, and
+   every entry of that trace carries value — what the transaction held
+   at the constrained field — and bound — what the constraint required.
+   A conforming verdict therefore discloses the transaction values that
+   were tested and the limits they were tested against, in the clear, to
+   everyone who holds the record.  A recipient address compared under
+   exact, an amount compared under range, a jurisdiction compared under
+   enum: all three appear verbatim in the trace, and the trace is inside
+   the digested core of Section 2.5.3.
+
+   This is not incidental and it is not minimized.  The trace is what
+   makes a verdict checkable predicate by predicate rather than merely
+   signed, and a trace with the values removed would not support the
+   recompute guarantee: a second implementation could no longer derive
+   the same core, only accept the first one's word for it.  The property
+   that makes the verdict verifiable is the same property that makes it
+   disclosing, and this revision does not offer both.
+
+   Three consequences are normative.  A relying party MUST treat a
+   verdict record as carrying transaction content, with the same care it
+   applies to the transaction itself.  A relying party MUST NOT forward,
+   publish, transmit to a third party, or anchor a verdict record whose
+   trace carries values it is obliged to protect, unless the recipient
+   is already entitled to those values; Section 7.7 requires that no
+   personally identifiable information be written on-chain when a record
+   is anchored for audit, the trace is precisely the member of a verdict
+   record that can carry it, and an anchoring pipeline that hashes the
+   record without inspecting the trace has satisfied Section 7.7 only by
+   accident.  And where a relying party retains verdict records, it MUST
+   apply to them the retention limit it applies to the transactions they
+   describe: a record kept after the transaction has been deleted keeps
+   the deleted values.
+
+   An issuer has one mitigation available inside this revision, and it
+   is a blunt one: not to constrain a sensitive value in a grant at all,
+   and to bound it outside the enforced path instead.  That trades away
+   the enforcement the grant would have provided, which is why it is a
+   mitigation and not a solution.
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 42]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   Section 9 names selective hash commitments as the intended remedy — a
+   commitment to a value rather than the value itself, so that an
+   auditor can confirm an agent stayed inside a bound without the bound
+   or the value becoming public.  Section 7.7 describes what such a
+   mechanism would have to bind to.  Neither defines one, and until one
+   exists, the disclosure above is the behaviour a conforming
+   implementation exhibits.
+
+7.9.  Resource Exhaustion and Input Limits
+
+   The minimum capabilities of Sections 2.2.1 and 2.5.1 — 256 grants, 64
+   constraints per grant, 512 enum members, 32 type-field names, paths
+   of 8 segments — are floors a conforming verifier has to reach, not
+   sizes it has to accept without limit (Section 2.2.1).  Read together
+   with the comparison rules they describe a worst case, and the worst
+   case is caller-supplied: a mandate at every floor, evaluated against
+   one transaction where every matched grant fails on its last
+   constraint, reaches 256 x 64 x 512 = 8 388 608 string comparisons,
+   over values the caller chose the length of.  The predicate trace
+   grows with it, entry by entry, and the trace is digested.
+
+   The comparison rules themselves are not where to economize.  The
+   constant-time exact comparison and the non-short-circuiting enum
+   comparison exist so that timing does not reveal how close a value
+   came or where in an enumeration it matched, and an implementation
+   that abandons either to save work has traded a denial-of-service
+   surface for a side channel.  Both remain MUST without qualification.
+
+   The input is where to economize.  A relying party MAY set hard limits
+   of its own, applied before evaluation begins, on the length of any
+   string in the mandate or in the transaction; on the total serialized
+   size of the mandate and of the transaction; on the depth and the
+   member count of the transaction object; and on the number of entries
+   a predicate trace may reach.  Such limits are local policy and this
+   document fixes no value for any of them, for the same reason it
+   states capabilities as floors: an issuer needs to know what any
+   conforming verifier will accept, and a verifier needs to remain free
+   to protect itself above that.
+
+   Where an input exceeds a limit, the relying party MUST reject fail-
+   closed.  Rejection here is the DENY verdict of Section 6.1, decided
+   before evaluation rather than during it.  A relying party MUST NOT
+   truncate the input, MUST NOT evaluate a prefix of it, and MUST NOT
+   return PERMIT on a mandate it evaluated only in part — a partial
+   evaluation that stops at a limit has not established that the
+   remaining grants were absent, only that it did not read them.
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 43]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   Two points follow specifically for the trace.  A value or a bound
+   read from a caller-supplied transaction enters the trace and
+   therefore the digested core, so a limit on input string length is
+   also the only limit on how large a verdict record can grow.  And a
+   relying party that refuses an oversized input MUST report the refusal
+   as a DENY with its reason recorded rather than as a transport error,
+   so that the caller can distinguish a refusal to evaluate from a
+   failure to reach the verifier — the two call for different responses,
+   and conflating them makes an overload look like an outage.
+
+8.  Privacy Considerations
+
+   AAEs contain the agent's DID and may contain the principal's DID.
+   Relying parties SHOULD NOT log full AAE payloads unless required for
+   regulatory audit purposes.  Where audit logs are required,
+   implementations SHOULD apply data minimization: log the AAE
+   identifier, action taken, timestamp, and outcome — not the full
+   MANDATE or CONSTRAINTS payload.
+
+   Even when only hashes of AAEs are anchored on a public ledger,
+   timestamps, issuer DIDs, subject DIDs, and repeated hash-publication
+   patterns can leak metadata and enable linkability across an agent's
+   activity.  Implementations SHOULD assess linkability risk before
+   anchoring AAEs on a public ledger and SHOULD avoid publishing stable
+   identifiers on-chain unless required.
+
+9.  Future Work
+
+   This document specifies what a conforming implementation can be held
+   to today.  Four further items are known and scoped, and each is left
+   out of the normative text for one reason: no deployed implementation
+   supports it yet.  Each is named here with the condition under which
+   it becomes normative in a revision of this document, and each is
+   discussed where its subject is treated.  Until its condition holds,
+   an item in this section places no requirement on an implementation,
+   and no implementation should claim conformance with it.
+
+   *  *Relying-party revocation lookup* (Section 7.5).  Only the
+      discovery half is left open.  The consequence half is normative in
+      this revision: a relying party that already knows a parent to be
+      revoked MUST treat its descendants as invalid.  What waits is the
+      lookup that would establish the revocation in the first place,
+      which becomes normative once the outbound request path is
+      constrained by an egress proxy and relying-party revocation lookup
+      is a deployed capability.  Section 5.2 lists this alongside the
+      three other capabilities waiting on the same egress path; they
+      become specifiable together.
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 44]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   *  *Principal identity across identifier spaces* (Section 2.2).
+      Becomes normative once a mechanism exists that derives the
+      correspondence between two principal identifiers — a rule by which
+      a relying party establishes that two identifiers name the same
+      principal without a deployment-local table — rather than being
+      handed it as deployment-local data.
+
+   *  *Freshness and condition liveness* (Section 2.4).  Becomes
+      normative once state carried across presentations is deployed and
+      its relationship to the recompute guarantee of Section 2.5.3 is
+      resolved.  A verdict that depends on a counter is no longer
+      recomputable from mandate and transaction alone, so the two cannot
+      simply be placed side by side.
+
+   *  *Selective hash commitments* (Section 7.7).  Becomes normative
+      once a reader of the anchoring ledger is wired, so that a
+      commitment can bind to what the chain actually holds.
+
+10.  Test Vectors
+
+   *What the vectors cover.* Every normative requirement in Sections
+   2.2.1, 2.2.2, 2.2.3, 2.5, 6.1, 6.2, 6.3 and 6.4 has a test vector.
+   Those sections are the enforcement path: grants and the type form,
+   action_binding, grant evaluation, the constraint language and its
+   trace, the verdict vocabulary, verdict chaining, and ratification
+   with its guards.
+
+   *What they do not cover*, stated so the claim is not read wider than
+   it is.  The vectors do not exercise step 4 of Section 5 (subject
+   binding), step 9 of Section 5 (delegation chains), or Section 7.5
+   (revocation).  Those steps run over a JWS, a resolved DID document
+   and, in the case of revocation, state the vectors cannot carry; a
+   static input-plus-expected-digest file is the wrong instrument for
+   them, and no file in this set claims otherwise.  Conformance with
+   this document as a whole is therefore not established by this set
+   alone.  Conformance with the sections listed above is.
+
+   *Where they are.* The vectors are published at
+   https://github.com/MoltyCel/aae-conformance-vectors under vectors/
+   enforce/. The normative reference is immutable and is the pair, not
+   the repository:
+
+   set version:  1.4.0
+   tag:          v1.4.0
+   commit:       531f880155ea1ce993a7ca74137b12c255d5b2ee
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 45]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   A repository moves; a commit id does not.  An implementer citing
+   conformance with this section MUST name the commit, because a later
+   set version can change an expected digest without changing a single
+   requirement of this document — version 1.4.0 differs from 1.3.0 in
+   exactly that way, and in no other.  The tag v1.3.0 remains and
+   identifies the set as it stood before reason left the digested core.
+
+   There are 26 vectors, and they are paired rather than merely present:
+   a requirement is covered by the case that satisfies it and by the
+   cases that violate it.  Ten cover the type form and action_binding —
+   the positive case, an instance value carried inside the action, a
+   missing type field, four non-object actions, a grant without
+   type_fields, type_fields without verb, and a repeated name.  Eight
+   cover the constraint language, with exact, enum and range each in a
+   holding and a failing form, plus an unrecognized type and a path with
+   an empty segment.  Three cover the verdict vocabulary: an explicit
+   hold reaching PENDING, an unaddressed action that must not, and a
+   forbidding grant outranking an allowing one.  Five cover ratification
+   and its guards.
+
+   Each vector states its expected verdict *and the core digest a
+   conforming implementation has to reproduce from the input alone*. The
+   digest is the conformance target rather than the verdict: an
+   implementation that returns the right verdict from a different core
+   has guessed the outcome, not recomputed the decision.  Because the
+   domain tag is part of every digest, each vector also states the tags
+   it was built under and the kernel version that wrote them; a verifier
+   can then tell a tag mismatch from a logic mismatch when a digest
+   fails to reproduce.
+
+   Two properties make the set falsifiable rather than self-confirming.
+   All 26 expected values were reproduced by a second implementation
+   written separately from the one that generated them, agreeing on
+   every verdict and on every core digest byte for byte.  And each
+   vector is evaluated twice — once as published, once with every
+   object's keys in reverse order — which a canonicalizing
+   implementation answers with the same digest and an implementation
+   serialising in insertion order does not.
+
+   Conformance with the sections this set covers is therefore something
+   a third party recomputes, not something an implementer asserts.  For
+   the sections it does not cover, this document offers no such
+   instrument, and an implementer claiming conformance with them says so
+   on its own authority.
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 46]
+
+Internet-Draft                     AAE                    September 2026
+
+
+11.  IANA Considerations
+
+11.1.  Media Type Registration
+
+   IANA is requested to register the following media type in the "Media
+   Types" registry, following the procedures of [RFC6838] and the
+   structured syntax suffix rules of [RFC6839]:
+
+   Type name:  application
+
+   Subtype name:  aae+json
+
+   Required parameters:  N/A
+
+   Optional parameters:  N/A
+
+   Encoding considerations:  Same as for application/json [RFC8259];
+      UTF-8.
+
+   Security considerations:  See Section 7 of this document.
+
+   Interoperability considerations:  This media type uses the "+json"
+      structured syntax suffix [RFC6839].  Processors that do not
+      understand application/aae+json MAY process it as application/
+      json.
+
+   Published specification:  This document.
+
+   Applications that use this media type:  Autonomous AI agent
+      frameworks, authorization servers, policy engines, and relying
+      parties that issue or evaluate Agent Authorization Envelopes.
+
+   Fragment identifier considerations:  As specified for the "+json"
+      structured syntax suffix in [RFC6839].
+
+   Additional information:  Deprecated alias names for this type: N/A.
+      Magic number(s): N/A.  File extension(s): .aae.json.  Macintosh
+      file type code(s): N/A.
+
+   Person & email address to contact for further information:  Lars
+      Kersten Kroehl lars@moltrust.ch (mailto:lars@moltrust.ch)
+
+   Intended usage:  COMMON
+
+   Restrictions on usage:  N/A
+
+   Author:  Lars Kersten Kroehl
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 47]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   Change controller:  Lars Kersten Kroehl, CryptoKRI GmbH
+
+   This registration applies to the unsecured JSON AAE payload.  A
+   secured AAE in JWS compact serialization is not a JSON document and
+   is transported using the application/jose media type defined in
+   [RFC7515]; this document does not register a separate media type for
+   the secured form.
+
+11.2.  No Further IANA Actions
+
+   This document requests no other IANA actions.
+
+   This revision introduces several closed vocabularies and several
+   domain tags, and none of them is offered for registration.  The
+   disposition values of Section 2.2.1, the constraint types of
+   Section 2.5.1, the verdict vocabulary of Section 6.1, the decision
+   and status values of Section 6.3, and the domain tags used by the
+   digests of Sections 2.2.2, 2.5.3 and 6.3 are closed sets defined by
+   this document.  A value outside one of these sets is not an
+   extension; it is an input a conforming verifier rejects.  Extension
+   therefore happens by a new revision of this document, not by an
+   addition to a registry.
+
+   The reason is stated in Section 2.5.1 and is a security property
+   rather than an editorial preference: what a verifier cannot evaluate,
+   it does not permit.  A registry would make these sets open at exactly
+   the point where that section requires them to be closed, and two
+   verifiers reading different registry snapshots could then reach
+   different verdicts on the same input — which Section 2.5.3 forbids.
+
+12.  References
+
+12.1.  Normative References
+
+   [W3C-DID]  W3C, "Decentralized Identifiers (DIDs) v1.0", 19 July
+              2022, <https://www.w3.org/TR/did-core/>.
+
+   [W3C-VC]   W3C, "Verifiable Credentials Data Model v2.0", 8 May 2024,
+              <https://www.w3.org/TR/vc-data-model-2.0/>.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <https://www.rfc-editor.org/info/rfc2119>.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https://www.rfc-editor.org/info/rfc8174>.
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 48]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   [RFC7515]  Jones, M., Bradley, J., and N. Sakimura, "JSON Web
+              Signature (JWS)", RFC 7515, DOI 10.17487/RFC7515, May
+              2015, <https://www.rfc-editor.org/info/rfc7515>.
+
+   [RFC8037]  Liusvaara, I., "CFRG Elliptic Curve Diffie-Hellman (ECDH)
+              and Signatures in JSON Object Signing and Encryption
+              (JOSE)", RFC 8037, DOI 10.17487/RFC8037, January 2017,
+              <https://www.rfc-editor.org/info/rfc8037>.
+
+   [RFC8032]  Josefsson, S. and I. Liusvaara, "Edwards-Curve Digital
+              Signature Algorithm (EdDSA)", RFC 8032,
+              DOI 10.17487/RFC8032, January 2017,
+              <https://www.rfc-editor.org/info/rfc8032>.
+
+   [RFC7517]  Jones, M., "JSON Web Key (JWK)", RFC 7517,
+              DOI 10.17487/RFC7517, May 2015,
+              <https://www.rfc-editor.org/info/rfc7517>.
+
+   [RFC3986]  Berners-Lee, T., Fielding, R., and L. Masinter, "Uniform
+              Resource Identifier (URI): Generic Syntax", STD 66,
+              RFC 3986, DOI 10.17487/RFC3986, January 2005,
+              <https://www.rfc-editor.org/info/rfc3986>.
+
+   [RFC8785]  Rundgren, A., Jordan, B., and S. Erdtman, "JSON
+              Canonicalization Scheme (JCS)", RFC 8785,
+              DOI 10.17487/RFC8785, June 2020,
+              <https://www.rfc-editor.org/info/rfc8785>.
+
+   [RFC6234]  Eastlake 3rd, D. and T. Hansen, "US Secure Hash Algorithms
+              (SHA and SHA-based HMAC and HKDF)", RFC 6234,
+              DOI 10.17487/RFC6234, May 2011,
+              <https://www.rfc-editor.org/info/rfc6234>.
+
+   [RFC4648]  Josefsson, S., "The Base16, Base32, and Base64 Data
+              Encodings", RFC 4648, DOI 10.17487/RFC4648, October 2006,
+              <https://www.rfc-editor.org/info/rfc4648>.
+
+   [RFC3339]  Klyne, G. and C. Newman, "Date and Time on the Internet:
+              Timestamps", RFC 3339, DOI 10.17487/RFC3339, July 2002,
+              <https://www.rfc-editor.org/info/rfc3339>.
+
+   [RFC6570]  Gregorio, J., Fielding, R., Hadley, M., Nottingham, M.,
+              and D. Orchard, "URI Template", RFC 6570,
+              DOI 10.17487/RFC6570, March 2012,
+              <https://www.rfc-editor.org/info/rfc6570>.
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 49]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   [RFC2104]  Krawczyk, H., Bellare, M., and R. Canetti, "HMAC: Keyed-
+              Hashing for Message Authentication", RFC 2104,
+              DOI 10.17487/RFC2104, February 1997,
+              <https://www.rfc-editor.org/info/rfc2104>.
+
+   [RFC7797]  Jones, M., "JSON Web Signature (JWS) Unencoded Payload
+              Option", RFC 7797, DOI 10.17487/RFC7797, February 2016,
+              <https://www.rfc-editor.org/info/rfc7797>.
+
+   [RFC6838]  Freed, N., Klensin, J., and T. Hansen, "Media Type
+              Specifications and Registration Procedures", BCP 13,
+              RFC 6838, DOI 10.17487/RFC6838, January 2013,
+              <https://www.rfc-editor.org/info/rfc6838>.
+
+   [RFC6839]  Hansen, T. and A. Melnikov, "Additional Media Type
+              Structured Syntax Suffixes", RFC 6839,
+              DOI 10.17487/RFC6839, January 2013,
+              <https://www.rfc-editor.org/info/rfc6839>.
+
+   [RFC8259]  Bray, T., Ed., "The JavaScript Object Notation (JSON) Data
+              Interchange Format", STD 90, RFC 8259,
+              DOI 10.17487/RFC8259, December 2017,
+              <https://www.rfc-editor.org/info/rfc8259>.
+
+12.2.  Informative References
+
+   [RFC6749]  Hardt, D., Ed., "The OAuth 2.0 Authorization Framework",
+              RFC 6749, DOI 10.17487/RFC6749, October 2012,
+              <https://www.rfc-editor.org/info/rfc6749>.
+
+   [RFC9635]  Richer, J., Ed. and F. Imbault, "Grant Negotiation and
+              Authorization Protocol (GNAP)", RFC 9635,
+              DOI 10.17487/RFC9635, October 2024,
+              <https://www.rfc-editor.org/info/rfc9635>.
+
+   [RFC9562]  Davis, K., Peabody, B., and P. Leach, "Universally Unique
+              IDentifiers (UUIDs)", RFC 9562, DOI 10.17487/RFC9562, May
+              2024, <https://www.rfc-editor.org/info/rfc9562>.
+
+   [SPIFFE]   "SPIFFE: Secure Production Identity Framework for
+              Everyone", n.d., <https://spiffe.io/>.
+
+   [ARXIV-AAE]
+              Kroehl, L. K., "From Specification to Deployment:
+              Empirical Evidence from a W3C VC + DID Trust
+              Infrastructure for Autonomous Agents", May 2026,
+              <https://arxiv.org/abs/2605.06738>.
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 50]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   [IMDA-MGF] Singapore IMDA, "Model AI Governance Framework for Agentic
+              AI, Version 1.5", 20 May 2026, <https://www.imda.gov.sg/-
+              /media/imda/files/about/emerging-tech-and-research/
+              artificial-intelligence/mgf-for-agentic-ai.pdf>.
+
+   [NIST-CAISI]
+              NIST, "NIST AI 100-1: Artificial Intelligence Risk
+              Management Framework", January 2023.
+
+   [PEDIGREE] Rampalli, K., "PEDIGREE: Verifiable Delegation Identity
+              for Agentic AI Systems", Work in Progress, Internet-Draft,
+              draft-rampalli-pedigree-00, 25 April 2026,
+              <https://datatracker.ietf.org/doc/draft-rampalli-pedigree-
+              00/>.
+
+Appendix A.  Example: Travel Booking Agent
+
+   A travel booking agent operating under an 8-hour mandate with a $500
+   transaction cap.  The example shows the JWS protected header and the
+   JWS payload (the unsecured Verifiable Credential); on the wire these
+   are BASE64URL-encoded and concatenated with the signature as a JWS in
+   compact serialization (Section 2.1).
+
+   JWS protected header:
+
+   {
+     "alg": "EdDSA",
+     "cty": "aae+json",
+     "kid": "did:moltrust:registry#key-1"
+   }
+
+   JWS payload:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 51]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   {
+     "@context": [
+       "https://www.w3.org/ns/credentials/v2",
+       "https://moltrust.ch/contexts/aae/v1"
+     ],
+     "type": ["VerifiableCredential", "AgentAuthorizationEnvelope"],
+     "id": "urn:uuid:9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+     "issuer": "did:moltrust:registry",
+     "validFrom": "2026-05-20T08:00:00Z",
+     "credentialSubject": {
+       "id": "did:example:travel-agent-001",
+       "aae": {
+         "mandate": {
+           "actions": ["read", "book", "pay"],
+           "purpose": "Business travel booking",
+           "scope": "travel-vertical",
+           "principal_did": "did:example:enterprise-corp"
+         },
+         "constraints": {
+           "max_transaction_value": {
+             "value": 500, "currency": "USD", "required": true
+           },
+           "allowed_domains": {
+             "value": ["flights.example.com", "hotels.example.com"],
+             "required": true
+           }
+         },
+         "validity": {
+           "not_before": "2026-05-20T08:00:00Z",
+           "not_after": "2026-05-20T16:00:00Z",
+           "single_use": false
+         }
+       }
+     }
+   }
+
+Appendix B.  Relationship to Existing Standards
+
+   AAE is designed as a complement to, not a replacement for, existing
+   authorization standards:
+
+   *  *OAuth 2.0 / GNAP* ([RFC6749], [RFC9635]): Handle human-delegated
+      access tokens.  AAE handles machine-to-machine agent authorization
+      with richer semantics.
+
+   *  *SPIFFE/SVID* ([SPIFFE]): Handles workload identity in service
+      meshes.  AAE handles authorization semantics layered above
+      identity.
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 52]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   *  *W3C Verifiable Credentials*: AAE is issued as a VC, leveraging
+      the existing VC ecosystem for issuance, verification, and
+      revocation.
+
+   *  *W3C DIDs*: AAE subjects and issuers are identified by DIDs,
+      enabling decentralized, portable agent identity.
+
+Appendix C.  Acknowledgements
+
+   The AAE specification is derived from the MolTrust production
+   deployment documented in [ARXIV-AAE].  The author thanks Harald
+   Rössler (DSNCON GmbH) for infrastructure and security review.
+
+Appendix D.  Changes Since -01
+
+   This revision is substantive.  It adds an enforcement layer that -01
+   did not have, states two verification steps that -01 described
+   without saying how a verifier satisfies them, and says plainly which
+   capabilities are not yet available.  An AAE that conforms to -01
+   still conforms to this revision: every member added here is OPTIONAL,
+   and the wire format and verification algorithm of -01 are unchanged
+   for an envelope that does not use them.
+
+   New material:
+
+   *  Section 2.2.1 (Grants), 2.2.2 (Action Binding) and 2.2.3 (Grant
+      Evaluation): an OPTIONAL grants array that states the conditions
+      under which one action is authorized at the moment it is
+      attempted, and the tagged digest that binds a grant to an action
+      type.
+
+   *  Section 2.5 (Enforcement Constraint Language), with its closed
+      type set, its predicate trace, and the recompute determinism the
+      trace serves.  This is separate from the CONSTRAINTS block of
+      Section 2.3, which is unchanged.
+
+   *  Section 5.2 (Deferred Verification Capabilities): four
+      capabilities that wait on one egress path, named together rather
+      than scattered.
+
+   *  Section 6 (Verdicts and Ratification): the PERMIT / DENY / PENDING
+      vocabulary, verdict records and their chaining, and ratification
+      with its authority rule — the authority derives from the mandate,
+      never from the proof.
+
+   *  Section 7.8 (Predicate Trace Disclosure) and Section 7.9 (Resource
+      Exhaustion and Input Limits).
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 53]
+
+Internet-Draft                     AAE                    September 2026
+
+
+   *  Section 9 (Future Work) and Section 10 (Test Vectors).
+
+   Changed material:
+
+   *  Section 5, step 4 (Subject Binding): the nonce format and its
+      lifetime, the used-nonce store and its retention rule, the two-
+      sided iat window, a JOSE profile for the challenge response, and
+      the DID URL comparison rule.  The six conditions of -01 are
+      unchanged.
+
+   *  Section 5, step 9 (Delegation Chain): the wire format for inline
+      ancestors, the attenuation rules for grants, and the recursion
+      limit.
+
+   *  Section 7.1 (Replay Attacks): a paragraph stating that a PERMIT
+      under Section 2.5 is not a single-use authorization, and that
+      freshness and consumption have to come from the protocol around
+      the verdict.
+
+   *  Section 7.5 (Delegation Revocation): both SHOULD statements of -01
+      §6.5 are separated by normative rank.  The issuer statement rises
+      to MUST and gains the incomplete-cascade rule; the relying-party
+      statement rises to MUST for the case where the revocation is
+      already known, while the lookup that would establish it stays
+      deferred.
+
+   *  Section 11 (IANA Considerations): an explicit statement that this
+      document requests no registry for its vocabularies or domain tags,
+      and why.
+
+   *  Four normative references added: [RFC8785], [RFC4648], [RFC2104]
+      and [RFC7797], each carrying a MUST introduced by this revision.
+
+   Renumbering: Security Considerations moves from 6 to 7, Privacy
+   Considerations from 7 to 8, IANA Considerations from 8 to 11, and
+   References from 9 to 12.
+
+Author's Address
+
+   Lars Kersten Kroehl
+   CryptoKRI GmbH
+   CH-8001 Zurich
+   Switzerland
+   Email: lars@moltrust.ch
+
+
+
+
+
+
+
+Kroehl                    Expires 10 March 2027                [Page 54]
