@@ -342,3 +342,5 @@ Verify bundles in the browser at https://agent-passport.org/verify.html
 ## License
 
 Apache-2.0. Copyright 2026 Tymofii Pidlisnyi.
+
+<!-- lgd gate probe: this commit must be refused by the gate -->
